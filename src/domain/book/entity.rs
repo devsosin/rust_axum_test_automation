@@ -1,9 +1,20 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, sqlx::FromRow, Serialize)]
 pub struct Book {
-    id: i64,
-    name: String
+    id: i32,
+    name: String, 
+    type_id: i16, 
+}
+
+impl Book {
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_type_id(&self) -> i16 {
+        self.type_id
+    }
 }
 
 #[derive(Deserialize)]

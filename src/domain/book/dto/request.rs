@@ -7,10 +7,10 @@ pub struct NewBook {
 }
 
 impl NewBook {
-    pub fn new(name: &str, book_type: &str) -> Self {
+    pub fn new(name: String, book_type: String) -> Self {
         Self {
-            name: name.to_owned(),
-            book_type: book_type.to_owned(),
+            name,
+            book_type,
         }
     }
     pub fn get_name(&self) -> &str {
