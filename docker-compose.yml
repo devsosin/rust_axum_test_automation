@@ -1,0 +1,12 @@
+version: "3"
+
+name: "sosiny"
+
+services:
+  test-db:
+    image: postgres:latest
+    ports:
+      - "5455:5432"
+    env_file: .env.test.db
+    volumes:
+      - ./db/init/:/docker-entrypoint-initdb.d/
