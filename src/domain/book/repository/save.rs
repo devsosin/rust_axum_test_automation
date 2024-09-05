@@ -36,9 +36,7 @@ mod tests {
     // database connect 체크
     #[tokio::test]
     async fn check_database_connectivity() {
-        // dotenv::from_filename(".env.test").ok();
-        let database_url = "postgres://test:test1234@localhost:5455/test_db"; // std::env::var("DATABASE_URL").expect("set DATABASE_URL env variable");
-        
+        let database_url = std::env::var("DATABASE_URL").expect("set DATABASE_URL env variable");
         println!("{:?}", &database_url);
 
         let pool = PgPoolOptions::new()
@@ -52,9 +50,7 @@ mod tests {
     }
 
     async fn create_connection_pool() -> PgPool {
-        // dotenv::from_filename(".env.test").ok();
-        // let database_url = std::env::var("DATABASE_URL").expect("set DATABASE_URL env variable");
-        let database_url = "postgres://test:test1234@localhost:5455/test_db";
+        let database_url = std::env::var("DATABASE_URL").expect("set DATABASE_URL env variable");
 
         PgPool::connect(&database_url).await.expect("Unable to connect to database")
     }
@@ -66,13 +62,13 @@ mod tests {
 
         // given
         let new_book = NewBook::new("새 가계부".to_string(), "개인".to_string());
-        let _ = save_book(&pool, &new_book, 1).await;
+        let _ = save_book(&pool, &new_book, 1).await; // id 반환하는것도 괜찮을듯?
 
         // when
         let book = sqlx::query_as::<_, Book>(
             "SELECT id, name, type_id FROM tb_book WHERE id = $1"
         )
-        .bind(1i64)
+        .bind(1i32)
         .fetch_one(&pool)
         .await
         .map_err(|err| err.to_string())
@@ -83,7 +79,4 @@ mod tests {
         assert_eq!(1, book.get_type_id());
     }
     
-    // query가 옳은지 검증, 다양한 데이터 타입 체크
-
-
 }

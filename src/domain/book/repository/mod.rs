@@ -7,7 +7,7 @@ use super::{dto::request::NewBook, entity::Book};
 
 pub trait BookRepository: Send + Sync {
     async fn get_book(&self, id: i64) -> Result<Option<Book>, Error>;
-    async fn save_book(&self, new_book: &NewBook) -> Result<(), Error>;
+    async fn save_book(&self, new_book: &NewBook, type_id: i16) -> Result<(), Error>;
     async fn delete_book(&self, id: i64) -> Result<(), Error>;
 }
 

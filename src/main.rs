@@ -1,5 +1,5 @@
 // Rust Base Library
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 // Axum
 use axum::{
@@ -43,13 +43,14 @@ async fn main() {
         .connect(&database_url)
         .await
         .expect("unable to make connections");
+    
+    let pool = Arc::new(pool);
 
-    let book_router = book_router();
+    let book_router = book_router(pool.clone());
 
     let app = Router::new()
         .route("/", get(root))
-        .nest("/api/v1/book", book_router)
-        .layer(Extension(pool));
+        .nest("/api/v1/book", book_router);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());

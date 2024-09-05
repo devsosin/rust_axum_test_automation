@@ -1,0 +1,11 @@
+# Dockerfile
+FROM rust:1.80 as builder
+
+# Set the working directory inside the container
+WORKDIR /usr/src/app
+
+# Copy the project files into the container
+COPY . .
+
+# Run tests with cargo test
+CMD ["cargo", "test", "--no-fail-fast", "--", "--test-threads=1"]
