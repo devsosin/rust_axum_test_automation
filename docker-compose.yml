@@ -1,6 +1,6 @@
 version: "3"
 
-name: "sosiny"
+name: "sosiny-tester"
 
 services:
   test_db:
