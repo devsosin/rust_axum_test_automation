@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Serialize)]
 pub struct NewBook {
     name: String,
     book_type: String,

@@ -3,23 +3,19 @@ use std::sync::Arc;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use serde_json::json;
 
-use crate::domain::book::{
-    dto::request::NewBook,
-    usecase::{BookUsecase, BookUsecaseImpl},
-};
+use crate::domain::book::{dto::request::NewBook, usecase::BookUsecase};
 
-pub async fn create_book(
-    Extension(usecase): Extension<Arc<BookUsecaseImpl>>,
+pub async fn create_book<T>(
+    Extension(usecase): Extension<Arc<T>>,
     Json(new_book): Json<NewBook>,
-) -> impl IntoResponse {
+) -> impl IntoResponse
+where
+    T: BookUsecase,
+{
     tracing::debug!("CALL: Create Book");
     tracing::info!("Create Book : {}", new_book.get_name());
 
-    // book_type 체크 -> &str -> i16
-    let type_id: i16 = 1;
-
-    // book_type 전달
-    match usecase.create_book(&new_book, type_id).await {
+    match usecase.create_book(&new_book).await {
         Ok(id) => {
             tracing::info!("Created: {}", id);
             (
@@ -44,52 +40,90 @@ mod tests {
     use std::sync::Arc;
 
     use axum::{
+        async_trait,
         body::Body,
         http::{Method, Request},
         routing::post,
-        Extension, Router,
+        Error, Extension, Router,
     };
 
-    use serde_json::Value;
+    use mockall::{mock, predicate};
+    use serde_json::{to_string, Value};
 
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
-    use crate::config;
     use crate::domain::book::{
-        handler::create::create_book, repository::BookRepositoryImpl, usecase::BookUsecaseImpl,
+        dto::request::NewBook, entity::Book, handler::create::create_book, usecase::BookUsecase,
     };
 
-    #[tokio::test]
-    async fn check_create_book_route() {
-        // usecase mockall
-        let pool = config::database::create_connection_pool().await;
+    mock! {
+        BookUsecaseImpl {}
 
-        let repository = Arc::new(BookRepositoryImpl::new(Arc::new(pool)));
-        let usecase = Arc::new(BookUsecaseImpl::new(repository));
+        #[async_trait]
+        impl BookUsecase for BookUsecaseImpl {
+            async fn create_book(&self, new_book: &NewBook) -> Result<i32, String>;
+            async fn read_book(&self, id: i32) -> Result<Book, Error>;
+            async fn update_book(&self, id: i32) -> Result<Book, Error>;
+            async fn delete_book(&self, id: i32) -> Result<(), Error>;
+        }
+    }
 
-        let app = Router::new()
-            .route("/api/v1/book", post(create_book))
-            .layer(Extension(usecase));
-
+    fn create_req(body: String) -> Request<Body> {
         let req = Request::builder()
             .method(Method::POST)
             .uri("/api/v1/book")
-            .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{
-                    "name": "테스트 가계부",
-                    "book_type": "개인"
-                }"#,
-            ))
+            .header("content-type", "application/json;charset=utf-8")
+            .body(Body::from(body))
             .unwrap();
+        req
+    }
 
+    fn create_app(new_book: &NewBook, ret: Result<i32, String>) -> Router {
+        let mut usecase = MockBookUsecaseImpl::new();
+        usecase
+            .expect_create_book()
+            .with(predicate::eq(new_book.clone()))
+            .returning(move |_| ret.clone());
+
+        let app = Router::new()
+            .route("/api/v1/book", post(create_book::<MockBookUsecaseImpl>))
+            .layer(Extension(Arc::new(usecase)));
+
+        app
+    }
+
+    #[tokio::test]
+    async fn check_create_book_status() {
+        // Arrange
+        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let json_body = to_string(&new_book).unwrap();
+
+        let app = create_app(&new_book, Ok(1));
+        let req = create_req(json_body);
+
+        // Act
         let response = app.oneshot(req).await.unwrap();
 
-        let (parts, body) = response.into_parts();
+        // Assert
+        assert_eq!(response.status(), 201);
+    }
 
-        // 이건 메시지 확인용 (정상적으로 파싱되는지 체크)
-        // handler에선 input 검증, repsonse 검증
+    #[tokio::test]
+    async fn check_create_book_body() {
+        // Arrange
+        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let json_body = to_string(&new_book).unwrap();
+
+        let app = create_app(&new_book, Ok(1));
+        let req = create_req(json_body);
+
+        // Act
+        let response = app.oneshot(req).await.unwrap();
+
+        // Assert
+        let body = response.into_body();
+
         let body_bytes = body
             .collect()
             .await
@@ -99,10 +133,38 @@ mod tests {
         let body_str =
             String::from_utf8(body_bytes.to_vec()).expect("Failed to convert body to string");
 
-        let body: Value = serde_json::from_str(&body_str).expect("Failed to parse JSON");
+        let body_json: Value = serde_json::from_str(&body_str).expect("Failed to parse JSON");
 
-        println!("{:?}", body);
+        assert_eq!(body_json["book_id"], 1);
+    }
 
-        assert_eq!(parts.status, 201);
+    #[tokio::test]
+    async fn check_create_book_failure_no_book_type() {
+        let new_book = NewBook::new("테스트 가계부".to_string(), "없는 카테".to_string());
+        let json_body = to_string(&new_book).unwrap();
+
+        let app = create_app(&new_book, Err("없는 카테고리입니다.".to_string()));
+        let req = create_req(json_body);
+
+        // Act
+        let response = app.oneshot(req).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), 404)
+    }
+
+    #[tokio::test]
+    async fn check_create_book_failure_duplicate() {
+        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let json_body = to_string(&new_book).unwrap();
+
+        let app = create_app(&new_book, Err("중복된 가계부입니다.".to_string()));
+        let req = create_req(json_body);
+
+        // Act
+        let response = app.oneshot(req).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), 421)
     }
 }

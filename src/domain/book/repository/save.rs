@@ -1,8 +1,6 @@
 use sqlx::{PgPool, Row};
 
-use crate::domain::book::dto::request::NewBook;
-
-pub async fn save_book(pool: &PgPool, new_book: &NewBook, type_id: i16) -> Result<i32, String> {
+pub async fn save_book(pool: &PgPool, name: &str, type_id: i16) -> Result<i32, String> {
     // 한 유저 내에서는 같은 이름의 가계부 생성 불가
     let row = sqlx::query(
         r#"
@@ -11,7 +9,7 @@ pub async fn save_book(pool: &PgPool, new_book: &NewBook, type_id: i16) -> Resul
         RETURNING id
         "#,
     )
-    .bind(new_book.get_name())
+    .bind(name)
     .bind(type_id)
     .fetch_one(pool)
     .await
@@ -34,7 +32,6 @@ mod tests {
     use sqlx::Acquire;
 
     use crate::config;
-    use crate::domain::book::dto::request::NewBook;
     use crate::domain::book::entity::Book;
     use crate::domain::book::repository::save::save_book;
 
@@ -56,17 +53,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_create_book() {
+    async fn check_create_book_success() {
         // Arange: 테스트 데이터베이스 설정, 데이터 준비
         let pool = config::database::create_connection_pool().await;
         let mut conn = pool.acquire().await.unwrap();
         let transaction = conn.begin().await.unwrap();
 
-        let new_book = NewBook::new("새 가계부".to_string(), "개인".to_string());
+        let name = "새 가계부";
         let type_id: i16 = 1;
 
         // Act: 메서드 호출을 통한 DB에 데이터 삽입
-        let result = save_book(&pool, &new_book, type_id).await;
+        let result = save_book(&pool, name, type_id).await;
         assert!(result.is_ok()); // 삽입 성공 여부 확인
 
         // Assert: DB에서 직접 조회하여 검증
@@ -79,7 +76,7 @@ mod tests {
             .unwrap();
 
         // 삽입된 데이터의 필드값 확인
-        assert_eq!(new_book.get_name(), row.get_name());
+        assert_eq!(name, row.get_name());
         assert_eq!(type_id, row.get_type_id());
 
         // 상태변화 방지를 위한 롤백
@@ -87,4 +84,8 @@ mod tests {
     }
 
     // 중복데이터 삽입 테스트케이스
+    async fn check_create_book_failure() {
+        // user정보 같이 삽입 -> role 추가
+        // user-role table
+    }
 }

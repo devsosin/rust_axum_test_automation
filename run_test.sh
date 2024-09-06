@@ -1,6 +1,4 @@
 #!/bin/bash
-
-# Enable script to stop on errors
 set -e
 
 # Step 1: Start the test database using Docker Compose
@@ -14,80 +12,83 @@ docker-compose run --build --rm test_runner | tee raw_test_results.log
 # Step 3: Analyze test results for coverage and extract the specific failures section
 echo "Analyzing test results and extracting failures section..."
 
-# Read the raw log file into an array
-logContent=()
-while IFS= read -r line; do
-    logContent+=("$line")
-done < raw_test_results.log
+# Read the raw log file
+logContent=$(cat raw_test_results.log)
 
 # Initialize log output
-logOutput=()
+logOutput=""
 
-# Extract the line with total tests summary
-totalTestsLine=$(printf "%s\n" "${logContent[@]}" | grep "test result:")
+# 파일명을 변수로 선언
+logFile="test_results_summary.log"
 
-# Extract total, passed, failed, ignored, and filtered out test counts
-if [[ $totalTestsLine =~ ([0-9]+)\ passed;\ ([0-9]+)\ failed;\ ([0-9]+)\ ignored;\ ([0-9]+)\ measured;\ ([0-9]+)\ filtered\ out ]]; then
-    passedTests=${BASH_REMATCH[1]}
-    failedTests=${BASH_REMATCH[2]}
-    ignoredTests=${BASH_REMATCH[3]}
-    totalTests=$((passedTests + failedTests + ignoredTests))
+
+#!/bin/bash
+set -e
+
+# Step 2: Extract test result summary
+totalTestsLine=$(echo "$logContent" | grep "test result:")
+
+# Extract total, passed, and failed test counts using a simpler approach
+passedTests=$(echo "$totalTestsLine" | grep -o '[0-9]\+ passed' | grep -o '[0-9]\+')
+failedTests=$(echo "$totalTestsLine" | grep -o '[0-9]\+ failed' | grep -o '[0-9]\+')
+
+if [ -n "$passedTests" ] && [ -n "$failedTests" ]; then
+    totalTests=$((passedTests + failedTests))
 
     # Calculate coverage percentage
-    if ((totalTests > 0)); then
-        coverage=$(awk "BEGIN {print ($passedTests / $totalTests) * 100}")
-        coverageOutput="Coverage: $(printf "%.2f" $coverage)% ($passedTests passed out of $totalTests)"
-        echo "$coverageOutput"
-        logOutput+=("$coverageOutput")
+    if [ "$totalTests" -gt 0 ]; then
+        coverage=$(echo "scale=2; ($passedTests / $totalTests) * 100" | bc)
+        echo "Coverage: $coverage% ($passedTests passed out of $totalTests)\n" > "$logFile"
     else
-        echo "No tests were run."
-        logOutput+=("No tests were run.")
-    fi
-
-    # Extract the content between the first and last 'failures:' markers, excluding the last one
-    firstFailuresIndex=$(printf "%s\n" "${logContent[@]}" | grep -n "^failures:$" | head -n 1 | cut -d: -f1)
-    lastFailuresIndex=$(printf "%s\n" "${logContent[@]}" | grep -n "^failures:$" | tail -n 1 | cut -d: -f1)
-
-    if [[ -n $firstFailuresIndex && -n $lastFailuresIndex && $firstFailuresIndex -ne $lastFailuresIndex ]]; then
-        # Capture lines between the first 'failures:' and the last 'failures:', excluding the last 'failures:' line
-        failuresSection=("${logContent[@]:firstFailuresIndex:lastFailuresIndex-firstFailuresIndex-2}")
-
-        echo "Failures Section:"
-        logOutput+=("")
-        logOutput+=("Failures Section:")
-
-        for line in "${failuresSection[@]}"; do
-            # Replace ---- (.*) stdout ---- with Failed: .*
-            if [[ $line =~ ----\ (.*)\ stdout\ ---- ]]; then
-                formattedLine="Failed: ${BASH_REMATCH[1]}"
-                echo "$formattedLine"
-                logOutput+=("$formattedLine")
-            # Remove lines with the specific RUST_BACKTRACE note
-            elif [[ $line =~ note:\ run\ with\ .* ]]; then
-                # Skip this line
-                continue
-            # Handle lines with panicked at
-            elif [[ $line =~ panicked\ at\ (.+):([0-9]+:[0-9]+): ]]; then
-                formattedLine="Location: ${BASH_REMATCH[1]}:${BASH_REMATCH[2]}"
-                echo "$formattedLine"
-                logOutput+=("$formattedLine")
-            else
-                # Output lines as they are if no specific formatting is needed
-                echo "$line"
-                logOutput+=("$line")
-            fi
-        done
-    else
-        echo "No specific failures section found between the markers."
-        logOutput+=("No specific failures section found between the markers.")
+        echo "No tests were run." > "$logFile"
     fi
 else
-    echo "Could not parse test summary."
-    logOutput+=("Could not parse test summary.")
+    echo "Could not parse test summary." > "$logFile"
+fi
+
+echo "Failures Section:" >> "$logFile"
+
+firstIdx=$(grep -n "^failures:$" <<< "$logContent" | head -1 | cut -d: -f1)
+
+if [ -z "$firstIdx" ]; then
+    echo "No 'failures' found." >> "$logFile"
+else 
+    # 첫 번째 "failures:" 이후 로그 잘라내기
+    tailContent=$(sed -n "${firstIdx},\$p" <<< "$logContent")
+
+    # 잘라낸 로그에서 다음 "failures:" 줄 번호 찾기
+    secondIdx=$(grep -n "^failures:$" <<< "$tailContent" | head -2 | tail -1 | cut -d: -f1)
+
+    # 첫 번째와 두 번째 "failures:" 사이의 내용 추출
+    finalContent=$(sed -n "2,$((secondIdx-1))p" <<< "$tailContent")
+
+    while IFS= read -r line; do
+        # '---- 내용 stdout ----' 패턴을 'Failure: 내용'으로 변경
+        if [[ "$line" =~ ----\ (.*)\ stdout\ ---- ]]; then
+            content="${BASH_REMATCH[1]}"
+            echo "Failure: $content" >> "$logFile"
+            continue
+        fi
+
+        # 'note: run with `RUST_BACKTRACE=1`'가 포함된 줄은 출력하지 않음
+        if [[ "$line" == *"note: run with `RUST_BACKTRACE=1`"* ]]; then
+            continue
+        fi
+
+        # 'panicked at'를 포함한 줄에서 메시지 추출
+        if [[ "$line" == *"thread"* && "$line" == *"panicked at"* ]]; then
+            # Extract the part after 'panicked at'
+            echo "$line" | awk -F 'panicked at ' '{print "Location: " $2}' | sed 's/:$//' >> "$logFile"
+            continue
+        fi
+
+        echo "$line" >> "$logFile"
+
+    done <<< "$finalContent"
 fi
 
 # Save the filtered failures output to a summary log file
-printf "%s\n" "${logOutput[@]}" > test_results_summary.log
+# printf "%s\n" "$logOutput" >> test_results_summary.log
 
 # Step 4: Delete the raw test results log as it's no longer needed
 rm -f raw_test_results.log
