@@ -37,8 +37,10 @@ mod tests {
 
         #[async_trait]
         impl BookRepository for BookRepositoryImpl {
+            async fn get_books(&self) -> Result<Vec<Book>, String>;
             async fn get_book(&self, id: i32) -> Result<Book, String>;
             async fn save_book(&self, name: &str, type_id: i16) -> Result<i32, String>;
+            async fn update_book(&self, id: i32, name: &str) -> Result<(), String>;
             async fn delete_book(&self, id: i32) -> Result<(), String>;
         }
     }
@@ -47,6 +49,7 @@ mod tests {
 
         #[async_trait]
         impl BookTypeRepository for BookTypeRepositoryImpl {
+            async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
             async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
         }
     }

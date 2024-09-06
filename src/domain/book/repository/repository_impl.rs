@@ -35,9 +35,17 @@ impl BookRepository for BookRepositoryImpl {
         todo!()
     }
 
+    async fn get_books(&self) -> Result<Vec<Book>, String> {
+        todo!()
+    }
+
     // String 자리에 Error -> CUSTOM Error 전달
     async fn save_book(&self, name: &str, type_id: i16) -> Result<i32, String> {
         save_book(&self.pool, name, type_id).await
+    }
+
+    async fn update_book(&self, id: i32, name: &str) -> Result<(), String> {
+        todo!()
     }
 
     async fn delete_book(&self, id: i32) -> Result<(), String> {
@@ -49,5 +57,9 @@ impl BookRepository for BookRepositoryImpl {
 impl BookTypeRepository for BookTypeRepositoryImpl {
     async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String> {
         get_book_type_by_name(&self.pool, name).await
+    }
+
+    async fn get_book_types(&self) -> Result<Vec<BookType>, String> {
+        todo!()
     }
 }
