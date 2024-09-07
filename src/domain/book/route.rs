@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
-use axum::{routing::post, Extension, Router};
+use axum::Router;
+
 use sqlx::PgPool;
 
-use super::{
-    handler::create::create_book,
-    repository::{BookRepositoryImpl, BookTypeRepositoryImpl},
-    usecase::BookUsecaseImpl,
-};
+use super::handler::{create_router, read_router};
 
 pub fn get_router(pool: Arc<PgPool>) -> Router {
-    let book_repo = Arc::new(BookRepositoryImpl::new(pool.clone()));
-    let type_repo = Arc::new(BookTypeRepositoryImpl::new(pool));
-
-    let usecase = Arc::new(BookUsecaseImpl::new(book_repo, type_repo));
-
     Router::new()
-        .route(
-            "/",
-            post(create_book::<BookUsecaseImpl<BookRepositoryImpl, BookTypeRepositoryImpl>>),
-        )
-        .layer(Extension(usecase))
+        .merge(create_router(pool.clone()))
+        .merge(read_router(pool.clone()))
 }

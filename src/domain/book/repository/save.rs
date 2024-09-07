@@ -1,4 +1,29 @@
+use std::sync::Arc;
+
+use axum::async_trait;
 use sqlx::{PgPool, Row};
+
+pub struct SaveBookRepoImpl {
+    pool: Arc<PgPool>,
+}
+
+#[async_trait]
+pub trait SaveBookRepo: Send + Sync {
+    async fn save_book(&self, name: &str, type_id: i16) -> Result<i32, String>;
+}
+
+impl SaveBookRepoImpl {
+    pub fn new(pool: Arc<PgPool>) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl SaveBookRepo for SaveBookRepoImpl {
+    async fn save_book(&self, name: &str, type_id: i16) -> Result<i32, String> {
+        save_book(&self.pool, name, type_id).await
+    }
+}
 
 pub async fn save_book(pool: &PgPool, name: &str, type_id: i16) -> Result<i32, String> {
     // 한 유저 내에서는 같은 이름의 가계부 생성 불가

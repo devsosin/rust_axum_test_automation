@@ -130,6 +130,9 @@ INSERT INTO tb_book_type(name) VALUES
     ('커플'),
     ('기업');
 
+INSERT INTO tb_book(name, type_id) VALUES
+    ('테스트 가계부', 1);
+
 INSERT INTO tb_base_category(type_id, is_record, name, color) VALUES
     (1, FALSE, '계좌', '000000'), -- 1
     (1, FALSE, '대출', '000000'), -- 2
