@@ -1,27 +1,27 @@
 version: "3"
 
-name: "sosiny-tester"
+name: "sosiny"
 
 services:
-  test_db:
+  db:
     image: postgres:latest
-    environment:
-      - POSTGRES_USER=test
-      - POSTGRES_PASSWORD=test1234
-      - POSTGRES_DB=test_db
+    env_file: .env.db
+    restart: always
     volumes:
+      # - ./db/data/:/var/lib/postgresql/data/
       - ./db/init/:/docker-entrypoint-initdb.d/
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test_user"]
       interval: 6s
       retries: 5
 
-  test_runner:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
     depends_on:
-      test_db:
+      db:
         condition: service_healthy
-    environment:
-      - DATABASE_URL=postgres://test:test1234@test_db:5432/test_db
+    env_file: .env
