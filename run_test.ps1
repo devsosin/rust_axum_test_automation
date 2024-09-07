@@ -3,11 +3,11 @@ $ErrorActionPreference = "Stop"
 
 # Step 1: Start the test database using Docker Compose
 Write-Host "Starting test database with Docker Compose..."
-docker-compose up --build -d test_db
+docker-compose -f docker-compose.test.yml up --build -d db
 
 # Step 2: Run the tests with Docker Compose and save output to log
 Write-Host "Running tests with Docker Compose..."
-docker-compose run --build --rm test_runner | Tee-Object -FilePath raw_test_results.log
+docker-compose -f docker-compose.test.yml run --build --rm tester | Tee-Object -FilePath raw_test_results.log
 
 # Step 3: Analyze test results for coverage and extract the specific failures section
 Write-Host "Analyzing test results and extracting failures section..."
@@ -94,7 +94,7 @@ Write-Host "Deleted raw_test_results.log after processing."
 
 # Step 5: Clean up the environment by shutting down Docker Compose services
 Write-Host "Cleaning up the test environment..."
-docker-compose down
+docker-compose -f docker-compose.test.yml down
 
 # Notify the user of test completion and log locations
 Write-Host "Tests completed. Failures section is saved in test_results_summary.log."
