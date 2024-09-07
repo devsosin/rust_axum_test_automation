@@ -1,0 +1,154 @@
+use std::sync::Arc;
+
+use axum::async_trait;
+
+use crate::domain::book::{entity::Book, repository::GetBookRepo};
+
+pub struct ReadBookUsecaseImpl<T>
+where
+    T: GetBookRepo,
+{
+    repository: Arc<T>,
+}
+
+#[async_trait]
+pub trait ReadBookUsecase: Send + Sync {
+    async fn read_books(&self) -> Result<Vec<Book>, String>;
+    async fn read_book(&self, id: i32) -> Result<Book, String>;
+}
+
+impl<T> ReadBookUsecaseImpl<T>
+where
+    T: GetBookRepo,
+{
+    pub fn new(repository: Arc<T>) -> Self {
+        Self { repository }
+    }
+}
+
+#[async_trait]
+impl<T> ReadBookUsecase for ReadBookUsecaseImpl<T>
+where
+    T: GetBookRepo,
+{
+    async fn read_books(&self) -> Result<Vec<Book>, String> {
+        // Dereferencing Arc to get to the inner T
+        read_books(&*self.repository).await
+    }
+    async fn read_book(&self, id: i32) -> Result<Book, String> {
+        read_book(&*self.repository, id).await
+    }
+}
+
+async fn read_books(repository: &impl GetBookRepo) -> Result<Vec<Book>, String> {
+    repository.get_books().await
+}
+
+async fn read_book(repository: &impl GetBookRepo, id: i32) -> Result<Book, String> {
+    repository.get_book(id).await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use axum::async_trait;
+    use mockall::{mock, predicate};
+
+    use crate::domain::book::{
+        entity::Book,
+        repository::GetBookRepo,
+        usecase::{ReadBookUsecase, ReadBookUsecaseImpl},
+    };
+
+    mock! {
+        GetBookRepoImpl {}
+
+        #[async_trait]
+        impl GetBookRepo for GetBookRepoImpl {
+            async fn get_books(&self) -> Result<Vec<Book>, String>;
+            async fn get_book(&self, id: i32) -> Result<Book, String>;
+        }
+    }
+
+    #[tokio::test]
+    async fn check_read_books_success() {
+        // Arrange
+        let mut mock_repo = MockGetBookRepoImpl::new();
+
+        // 모킹 동작 설정
+        mock_repo.expect_get_books().returning(|| Ok(vec![])); // 성공 시 id 1반환
+
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+
+        // Act
+        let books = usecase.read_books().await;
+        assert!(books.is_ok());
+        let books = books.unwrap();
+
+        // Assert
+        assert_eq!(books.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn check_read_books_failure() {
+        // Arrange
+        let mut mock_repo = MockGetBookRepoImpl::new();
+
+        // 발생할 수 있는 에러케이스? 데이터베이스 접속 에러
+        mock_repo
+            .expect_get_books()
+            .returning(|| Err("에러가 발생하였습니다.".to_string()));
+
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+
+        // Act
+        let result = usecase.read_books().await;
+
+        // Assert
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn check_read_book_success() {
+        // Arrange
+        let mut mock_repo = MockGetBookRepoImpl::new();
+        let id = 1;
+
+        mock_repo
+            .expect_get_book()
+            .with(predicate::eq(id))
+            .returning(|i| Ok(Book::test_new(i)));
+
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+
+        // Act
+
+        let result = usecase.read_book(id).await;
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
+        // Assert
+        assert_eq!(result.get_id(), id);
+    }
+
+    #[tokio::test]
+    async fn check_read_book_failure() {
+        // Arrange
+        let mut mock_repo = MockGetBookRepoImpl::new();
+        let id = 1;
+
+        mock_repo
+            .expect_get_book()
+            .with(predicate::eq(id))
+            .returning(|i| Err("에러가 발생했습니다.".to_string()));
+
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+
+        // Act
+        let result = usecase.read_book(id).await;
+
+        // Assert
+        assert!(result.is_err())
+    }
+}

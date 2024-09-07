@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, sqlx::FromRow, Serialize)]
+#[derive(Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct Book {
     id: i32,
     name: String,
@@ -8,6 +8,18 @@ pub struct Book {
 }
 
 impl Book {
+    pub fn test_new(id: i32) -> Self {
+        Self {
+            id,
+            name: "테스트 가계부".to_string(),
+            type_id: 1,
+        }
+    }
+
+    pub fn get_id(&self) -> i32 {
+        self.id
+    }
+
     pub fn get_name(&self) -> &str {
         &self.name
     }

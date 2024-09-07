@@ -3,14 +3,14 @@ use std::sync::Arc;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use serde_json::json;
 
-use crate::domain::book::{dto::request::NewBook, usecase::BookUsecase};
+use crate::domain::book::{dto::request::NewBook, usecase::CreateBookUsecase};
 
 pub async fn create_book<T>(
     Extension(usecase): Extension<Arc<T>>,
     Json(new_book): Json<NewBook>,
 ) -> impl IntoResponse
 where
-    T: BookUsecase,
+    T: CreateBookUsecase,
 {
     tracing::debug!("CALL: Create Book");
     tracing::info!("Create Book : {}", new_book.get_name());
@@ -44,7 +44,7 @@ mod tests {
         body::Body,
         http::{Method, Request},
         routing::post,
-        Error, Extension, Router,
+        Extension, Router,
     };
 
     use mockall::{mock, predicate};
@@ -54,18 +54,15 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::domain::book::{
-        dto::request::NewBook, entity::Book, handler::create::create_book, usecase::BookUsecase,
+        dto::request::NewBook, handler::create::create_book, usecase::CreateBookUsecase,
     };
 
     mock! {
-        BookUsecaseImpl {}
+        CreateBookUsecaseImpl {}
 
         #[async_trait]
-        impl BookUsecase for BookUsecaseImpl {
+        impl CreateBookUsecase for CreateBookUsecaseImpl {
             async fn create_book(&self, new_book: &NewBook) -> Result<i32, String>;
-            async fn read_book(&self, id: i32) -> Result<Book, Error>;
-            async fn update_book(&self, id: i32) -> Result<Book, Error>;
-            async fn delete_book(&self, id: i32) -> Result<(), Error>;
         }
     }
 
@@ -80,14 +77,17 @@ mod tests {
     }
 
     fn create_app(new_book: &NewBook, ret: Result<i32, String>) -> Router {
-        let mut usecase = MockBookUsecaseImpl::new();
+        let mut usecase = MockCreateBookUsecaseImpl::new();
         usecase
             .expect_create_book()
             .with(predicate::eq(new_book.clone()))
             .returning(move |_| ret.clone());
 
         let app = Router::new()
-            .route("/api/v1/book", post(create_book::<MockBookUsecaseImpl>))
+            .route(
+                "/api/v1/book",
+                post(create_book::<MockCreateBookUsecaseImpl>),
+            )
             .layer(Extension(Arc::new(usecase)));
 
         app
@@ -131,9 +131,9 @@ mod tests {
             .to_bytes();
 
         let body_str =
-            String::from_utf8(body_bytes.to_vec()).expect("Failed to convert body to string");
+            String::from_utf8(body_bytes.to_vec()).expect("failed to convert body to string");
 
-        let body_json: Value = serde_json::from_str(&body_str).expect("Failed to parse JSON");
+        let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
         assert_eq!(body_json["book_id"], 1);
     }

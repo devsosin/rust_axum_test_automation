@@ -1,9 +1,47 @@
 use std::sync::Arc;
 
-use super::{super::repository::BookRepository, NewBook};
-use crate::domain::book::repository::BookTypeRepository;
+use axum::async_trait;
 
-pub async fn create_book<T: BookRepository, U: BookTypeRepository>(
+use crate::domain::book::{
+    dto::request::NewBook,
+    repository::{save::SaveBookRepo, GetBookTypeRepo},
+};
+
+pub struct CreateBookUsecaseImpl<T: SaveBookRepo, U: GetBookTypeRepo> {
+    book_repo: Arc<T>,
+    type_repo: Arc<U>,
+}
+
+#[async_trait]
+pub trait CreateBookUsecase: Send + Sync {
+    async fn create_book(&self, new_book: &NewBook) -> Result<i32, String>;
+}
+
+impl<T, U> CreateBookUsecaseImpl<T, U>
+where
+    T: SaveBookRepo,
+    U: GetBookTypeRepo,
+{
+    pub fn new(book_repo: Arc<T>, type_repo: Arc<U>) -> Self {
+        Self {
+            book_repo,
+            type_repo,
+        }
+    }
+}
+
+#[async_trait]
+impl<T, U> CreateBookUsecase for CreateBookUsecaseImpl<T, U>
+where
+    T: SaveBookRepo,
+    U: GetBookTypeRepo,
+{
+    async fn create_book(&self, new_book: &NewBook) -> Result<i32, String> {
+        create_book(self.book_repo.clone(), self.type_repo.clone(), new_book).await
+    }
+}
+
+pub async fn create_book<T: SaveBookRepo, U: GetBookTypeRepo>(
     book_repo: Arc<T>,
     type_repo: Arc<U>,
     new_book: &NewBook,
@@ -27,28 +65,25 @@ mod tests {
 
     use crate::domain::book::{
         dto::request::NewBook,
-        entity::{Book, BookType},
-        repository::{BookRepository, BookTypeRepository},
-        usecase::{BookUsecase, BookUsecaseImpl},
+        entity::BookType,
+        repository::{save::SaveBookRepo, GetBookTypeRepo},
     };
 
+    use super::{CreateBookUsecase, CreateBookUsecaseImpl};
+
     mock! {
-        pub BookRepositoryImpl {}
+        pub SaveBookRepoImpl {}
 
         #[async_trait]
-        impl BookRepository for BookRepositoryImpl {
-            async fn get_books(&self) -> Result<Vec<Book>, String>;
-            async fn get_book(&self, id: i32) -> Result<Book, String>;
+        impl SaveBookRepo for SaveBookRepoImpl {
             async fn save_book(&self, name: &str, type_id: i16) -> Result<i32, String>;
-            async fn update_book(&self, id: i32, name: &str) -> Result<(), String>;
-            async fn delete_book(&self, id: i32) -> Result<(), String>;
         }
     }
     mock! {
-        pub BookTypeRepositoryImpl {}
+        pub GetBookTypeRepoImpl {}
 
         #[async_trait]
-        impl BookTypeRepository for BookTypeRepositoryImpl {
+        impl GetBookTypeRepo for GetBookTypeRepoImpl {
             async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
             async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
         }
@@ -57,8 +92,8 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_success() {
         // Arrange
-        let mut mock_book_repo = MockBookRepositoryImpl::new();
-        let mut mock_type_repo = MockBookTypeRepositoryImpl::new();
+        let mut mock_book_repo = MockSaveBookRepoImpl::new();
+        let mut mock_type_repo = MockGetBookTypeRepoImpl::new();
 
         let new_book = NewBook::new("새 가계부".to_string(), "일반".to_string());
 
@@ -78,11 +113,13 @@ mod tests {
             .with(predicate::eq(new_book.get_name().to_owned()))
             .returning(|_| Ok(BookType::test_new()));
 
+        let usecase =
+            CreateBookUsecaseImpl::new(Arc::new(mock_book_repo), Arc::new(mock_type_repo));
+
         // Act
-        let usecase = BookUsecaseImpl::new(Arc::new(mock_book_repo), Arc::new(mock_type_repo));
+        let book_id = usecase.create_book(&new_book).await;
 
         // Assert
-        let book_id = usecase.create_book(&new_book).await;
         assert_eq!(book_id, Ok(1));
     }
 
@@ -92,8 +129,8 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_failure() {
         // Arrnge
-        let mut mock_book_repo = MockBookRepositoryImpl::new();
-        let mut mock_type_repo = MockBookTypeRepositoryImpl::new();
+        let mut mock_book_repo = MockSaveBookRepoImpl::new();
+        let mut mock_type_repo = MockGetBookTypeRepoImpl::new();
 
         let new_book = NewBook::new("새 가계부".to_string(), "개인".to_string());
         let type_id: i16 = 1;
@@ -111,11 +148,13 @@ mod tests {
             .with(predicate::eq(new_book.get_name().to_owned()))
             .returning(|_| Ok(BookType::test_new()));
 
+        let usecase =
+            CreateBookUsecaseImpl::new(Arc::new(mock_book_repo), Arc::new(mock_type_repo));
+
         // Act
-        let usecase = BookUsecaseImpl::new(Arc::new(mock_book_repo), Arc::new(mock_type_repo));
+        let result = usecase.create_book(&new_book).await;
 
         // Assert
-        let result = usecase.create_book(&new_book).await;
         assert_eq!(result, Err("에러가 발생했습니다.".to_string()));
     }
 }

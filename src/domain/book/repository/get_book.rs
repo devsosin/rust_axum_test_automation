@@ -1,13 +1,66 @@
+use std::sync::Arc;
+
+use axum::async_trait;
 use sqlx::PgPool;
 
 use crate::domain::book::entity::Book;
 
+pub struct GetBookRepoImpl {
+    pool: Arc<PgPool>,
+}
+
+#[async_trait]
+pub trait GetBookRepo: Send + Sync {
+    async fn get_books(&self) -> Result<Vec<Book>, String>;
+    async fn get_book(&self, id: i32) -> Result<Book, String>;
+}
+
+impl GetBookRepoImpl {
+    pub fn new(pool: Arc<PgPool>) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl GetBookRepo for GetBookRepoImpl {
+    async fn get_books(&self) -> Result<Vec<Book>, String> {
+        get_books(&self.pool).await
+    }
+
+    async fn get_book(&self, id: i32) -> Result<Book, String> {
+        get_book(&self.pool, id).await
+    }
+}
+
 pub async fn get_books(pool: &PgPool) -> Result<Vec<Book>, String> {
-    todo!()
+    let books: Vec<Book> = sqlx::query_as::<_, Book>(
+        r#"
+        SELECT * FROM tb_book
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        let err_msg = format!("Error(GetBooks): {:?}", e);
+        tracing::error!("{:?}", &err_msg);
+        err_msg
+    })?;
+
+    Ok(books)
 }
 
 pub async fn get_book(pool: &PgPool, id: i32) -> Result<Book, String> {
-    todo!()
+    let book = sqlx::query_as::<_, Book>("SELECT * FROM tb_book WHERE id=$1")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Error(GetBook{}): {}", id, e);
+            tracing::error!("{:?}", &err_msg);
+            err_msg
+        })?;
+
+    Ok(book)
 }
 
 #[cfg(test)]
