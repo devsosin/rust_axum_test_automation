@@ -29,7 +29,7 @@ where
 {
     match usecase.read_book(book_id).await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
-        Err(e) => Json(json!({"message": e})).into_response(),
+        Err(e) => (StatusCode::NOT_FOUND, Json(json!({"message": e}))).into_response(),
     }
 }
 
@@ -210,7 +210,7 @@ mod tests {
 
         let req = Request::builder()
             .method("GET")
-            .uri("api/v1/book/1")
+            .uri("/api/v1/book/1")
             .body(Body::from(()))
             .unwrap();
 
@@ -237,7 +237,7 @@ mod tests {
     #[tokio::test]
     async fn check_read_book_not_found() {
         // Arrange
-        let id = 1;
+        let id = -32;
 
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
         mock_usecase
