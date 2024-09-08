@@ -3,12 +3,12 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::{PgPool, Row};
 
-pub struct SaveBookRepoImpl {
+pub(crate) struct SaveBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub trait SaveBookRepo: Send + Sync {
+pub(crate) trait SaveBookRepo: Send + Sync {
     async fn save_book(&self, name: &str, book_type: &str) -> Result<i32, String>;
 }
 
@@ -25,7 +25,7 @@ impl SaveBookRepo for SaveBookRepoImpl {
     }
 }
 
-pub async fn save_book(pool: &PgPool, name: &str, book_type: &str) -> Result<i32, String> {
+pub(crate) async fn save_book(pool: &PgPool, name: &str, book_type: &str) -> Result<i32, String> {
     // 한 유저 내에서는 같은 이름의 가계부 생성 불가
     // type_id sub_query
     let row = sqlx::query(

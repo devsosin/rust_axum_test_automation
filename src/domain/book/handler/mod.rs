@@ -1,34 +1,36 @@
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Extension, Router,
 };
 
 use sqlx::PgPool;
 
-pub(super) mod create;
-pub(super) mod read;
-pub(super) mod read_type;
-pub(super) mod update;
+pub(crate) mod create;
+pub(crate) mod delete;
+pub(crate) mod read;
+pub(crate) mod read_type;
+pub(crate) mod update;
 
 use create::create_book;
+use delete::delete_book;
 use read::{read_book, read_books};
 use read_type::read_book_types;
 use update::update_book;
 
 use super::{
     repository::{
-        get_book::GetBookRepoImpl, save::SaveBookRepoImpl, update::UpdateBookRepoImpl,
-        GetBookTypeRepoImpl,
+        delete::DeleteBookRepoImpl, get_book::GetBookRepoImpl, get_book_type::GetBookTypeRepoImpl,
+        save::SaveBookRepoImpl, update::UpdateBookRepoImpl,
     },
     usecase::{
-        update::UpdateBookUsecaseImpl, CreateBookUsecaseImpl, ReadBookTypeUsecaseImpl,
-        ReadBookUsecaseImpl,
+        create::CreateBookUsecaseImpl, delete::DeleteBookUsecaseImpl, read::ReadBookUsecaseImpl,
+        read_type::ReadBookTypeUsecaseImpl, update::UpdateBookUsecaseImpl,
     },
 };
 
-pub fn create_router(pool: Arc<PgPool>) -> Router {
+pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
     let repository = SaveBookRepoImpl::new(pool.clone());
 
     let usecase = CreateBookUsecaseImpl::new(Arc::new(repository));
@@ -40,7 +42,7 @@ pub fn create_router(pool: Arc<PgPool>) -> Router {
     )
 }
 
-pub fn read_router(pool: Arc<PgPool>) -> Router {
+pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
     let repository = GetBookRepoImpl::new(pool);
 
     let usecase = ReadBookUsecaseImpl::new(Arc::new(repository));
@@ -54,7 +56,7 @@ pub fn read_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub fn read_type_router(pool: Arc<PgPool>) -> Router {
+pub(crate) fn read_type_router(pool: Arc<PgPool>) -> Router {
     let repository = GetBookTypeRepoImpl::new(pool);
 
     let usecase = ReadBookTypeUsecaseImpl::new(Arc::new(repository));
@@ -67,7 +69,7 @@ pub fn read_type_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub fn update_router(pool: Arc<PgPool>) -> Router {
+pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
     let repository = UpdateBookRepoImpl::new(pool);
     let usecase = UpdateBookUsecaseImpl::new(Arc::new(repository));
 
@@ -75,6 +77,18 @@ pub fn update_router(pool: Arc<PgPool>) -> Router {
         .route(
             "/:book_id",
             patch(update_book::<UpdateBookUsecaseImpl<UpdateBookRepoImpl>>),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub(crate) fn delete_router(pool: Arc<PgPool>) -> Router {
+    let repository = DeleteBookRepoImpl::new(pool);
+    let usecase = DeleteBookUsecaseImpl::new(Arc::new(repository));
+
+    Router::new()
+        .route(
+            "/:book_id",
+            delete(delete_book::<DeleteBookUsecaseImpl<DeleteBookRepoImpl>>),
         )
         .layer(Extension(Arc::new(usecase)))
 }

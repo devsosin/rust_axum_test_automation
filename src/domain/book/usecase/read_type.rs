@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{entity::BookType, repository::GetBookTypeRepo};
+use crate::domain::book::{entity::BookType, repository::get_book_type::GetBookTypeRepo};
 
 pub struct ReadBookTypeUsecaseImpl<T>
 where
@@ -45,7 +45,8 @@ mod tests {
     use mockall::mock;
 
     use crate::domain::book::{
-        entity::BookType, repository::GetBookTypeRepo, usecase::read_type::read_book_types,
+        entity::BookType, repository::get_book_type::GetBookTypeRepo,
+        usecase::read_type::read_book_types,
     };
 
     mock! {

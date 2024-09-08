@@ -28,12 +28,12 @@ where
     T: SaveBookRepo,
 {
     async fn create_book(&self, new_book: &NewBook) -> Result<i32, String> {
-        create_book(self.repository.clone(), new_book).await
+        create_book(&*self.repository, new_book).await
     }
 }
 
 pub async fn create_book<T: SaveBookRepo>(
-    repository: Arc<T>,
+    repository: &T,
     new_book: &NewBook,
 ) -> Result<i32, String> {
     repository
@@ -51,7 +51,7 @@ mod tests {
     use crate::domain::book::{
         dto::request::NewBook,
         entity::BookType,
-        repository::{save::SaveBookRepo, GetBookTypeRepo},
+        repository::{get_book_type::GetBookTypeRepo, save::SaveBookRepo},
     };
 
     use super::{CreateBookUsecase, CreateBookUsecaseImpl};

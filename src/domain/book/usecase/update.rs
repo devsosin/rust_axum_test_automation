@@ -35,8 +35,8 @@ where
     }
 }
 
-pub async fn update_book(
-    repository: &impl UpdateBookRepo,
+pub async fn update_book<T: UpdateBookRepo>(
+    repository: &T,
     id: i32,
     edit_book: &EditBook,
 ) -> Result<(), String> {

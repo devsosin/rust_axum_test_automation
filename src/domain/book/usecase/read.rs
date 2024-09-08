@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{entity::Book, repository::GetBookRepo};
+use crate::domain::book::{entity::Book, repository::get_book::GetBookRepo};
 
-pub struct ReadBookUsecaseImpl<T>
+pub(crate) struct ReadBookUsecaseImpl<T>
 where
     T: GetBookRepo,
 {
@@ -12,7 +12,7 @@ where
 }
 
 #[async_trait]
-pub trait ReadBookUsecase: Send + Sync {
+pub(crate) trait ReadBookUsecase: Send + Sync {
     async fn read_books(&self) -> Result<Vec<Book>, String>;
     async fn read_book(&self, id: i32) -> Result<Book, String>;
 }
@@ -40,11 +40,11 @@ where
     }
 }
 
-async fn read_books(repository: &impl GetBookRepo) -> Result<Vec<Book>, String> {
+async fn read_books<T: GetBookRepo>(repository: &T) -> Result<Vec<Book>, String> {
     repository.get_books().await
 }
 
-async fn read_book(repository: &impl GetBookRepo, id: i32) -> Result<Book, String> {
+async fn read_book<T: GetBookRepo>(repository: &T, id: i32) -> Result<Book, String> {
     repository.get_book(id).await
 }
 
@@ -55,11 +55,9 @@ mod tests {
     use axum::async_trait;
     use mockall::{mock, predicate};
 
-    use crate::domain::book::{
-        entity::Book,
-        repository::GetBookRepo,
-        usecase::{ReadBookUsecase, ReadBookUsecaseImpl},
-    };
+    use crate::domain::book::{entity::Book, repository::get_book::GetBookRepo};
+
+    use super::{ReadBookUsecase, ReadBookUsecaseImpl};
 
     mock! {
         GetBookRepoImpl {}

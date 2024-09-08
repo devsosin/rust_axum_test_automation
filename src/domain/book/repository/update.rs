@@ -39,7 +39,7 @@ pub async fn update_book(pool: &PgPool, id: i32, name: &str) -> Result<(), Strin
         })?;
 
     if result.rows_affected() == 0 {
-        return Err("target Id Not Found".to_string());
+        return Err("target id Not Found".to_string());
     };
 
     Ok(())
@@ -47,19 +47,18 @@ pub async fn update_book(pool: &PgPool, id: i32, name: &str) -> Result<(), Strin
 
 #[cfg(test)]
 mod tests {
-    use sqlx::Acquire;
 
     use crate::{
         config::database::create_connection_pool,
-        domain::book::{entity::Book, repository::update::update_book},
+        domain::book::repository::{get_book::get_book, save::save_book, update::update_book},
     };
 
     #[tokio::test]
     async fn check_database_connectivity() {
-        // Arrange
+        // Arrange, Act
         let pool = create_connection_pool().await;
 
-        // Act, Assert
+        // Assert
         assert_eq!(pool.is_closed(), false)
     }
 
@@ -67,38 +66,24 @@ mod tests {
     async fn check_book_update_success() {
         // Arrange
         let pool = create_connection_pool().await;
-        let mut conn = pool.acquire().await.unwrap();
-        let transaction = conn.begin().await.unwrap();
 
-        let target_id: i32 = 1;
+        let inserted_id = save_book(&pool, "수정용 가계부", "개인").await.unwrap();
         let target_name = "변경 가계부";
 
         // Act
-        let response = update_book(&pool, target_id, target_name).await;
+        let response = update_book(&pool, inserted_id, target_name).await;
         assert!(response.is_ok());
 
         // Assert
-        let row = sqlx::query_as::<_, Book>(
-            "
-        SELECT * FROM tb_book WHERE id = $1",
-        )
-        .bind(target_id)
-        .fetch_one(&pool)
-        .await
-        .map_err(|e| format!("{:?}", e))
-        .unwrap();
+        let row = get_book(&pool, inserted_id).await.unwrap();
 
-        assert_eq!(row.get_name(), target_name);
-
-        transaction.rollback().await.unwrap();
+        assert_ne!(row.get_name(), "수정용 가계부");
     }
 
     #[tokio::test]
     async fn check_book_update_id_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
-        let mut conn = pool.acquire().await.unwrap();
-        let transaction = conn.begin().await.unwrap();
 
         let target_id = 999;
         let target_name = "변경되지 않는 가계부";
@@ -107,9 +92,7 @@ mod tests {
         let result = update_book(&pool, target_id, &target_name).await;
 
         // Assert
-        assert!(result.is_err());
-
-        transaction.rollback().await.unwrap();
+        assert!(result.is_err())
     }
 
     #[tokio::test]

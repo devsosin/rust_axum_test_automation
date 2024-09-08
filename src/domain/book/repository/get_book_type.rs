@@ -5,12 +5,12 @@ use sqlx::PgPool;
 
 use crate::domain::book::entity::BookType;
 
-pub struct GetBookTypeRepoImpl {
+pub(crate) struct GetBookTypeRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub trait GetBookTypeRepo: Send + Sync {
+pub(crate) trait GetBookTypeRepo: Send + Sync {
     async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
     async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
 }
@@ -31,7 +31,7 @@ impl GetBookTypeRepo for GetBookTypeRepoImpl {
     }
 }
 
-pub async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, String> {
+async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, String> {
     let rows: Vec<BookType> = sqlx::query_as::<_, BookType>(
         r#"
     SELECT * FROM tb_book_type

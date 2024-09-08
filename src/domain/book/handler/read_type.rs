@@ -4,9 +4,9 @@ use axum::{response::IntoResponse, Extension, Json};
 use hyper::StatusCode;
 use serde_json::json;
 
-use crate::domain::book::usecase::ReadBookTypeUsecase;
+use crate::domain::book::usecase::read_type::ReadBookTypeUsecase;
 
-pub async fn read_book_types<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
+pub(crate) async fn read_book_types<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
 where
     T: ReadBookTypeUsecase,
 {
@@ -31,7 +31,8 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::domain::book::{
-        entity::BookType, handler::read_type::read_book_types, usecase::ReadBookTypeUsecase,
+        entity::BookType, handler::read_type::read_book_types,
+        usecase::read_type::ReadBookTypeUsecase,
     };
 
     mock! {
