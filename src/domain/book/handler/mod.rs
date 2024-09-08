@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, post},
+    routing::{get, patch, post},
     Extension, Router,
 };
 
@@ -10,14 +10,22 @@ use sqlx::PgPool;
 pub(super) mod create;
 pub(super) mod read;
 pub(super) mod read_type;
+pub(super) mod update;
 
 use create::create_book;
 use read::{read_book, read_books};
 use read_type::read_book_types;
+use update::update_book;
 
 use super::{
-    repository::{get_book::GetBookRepoImpl, save::SaveBookRepoImpl, GetBookTypeRepoImpl},
-    usecase::{CreateBookUsecaseImpl, ReadBookTypeUsecaseImpl, ReadBookUsecaseImpl},
+    repository::{
+        get_book::GetBookRepoImpl, save::SaveBookRepoImpl, update::UpdateBookRepoImpl,
+        GetBookTypeRepoImpl,
+    },
+    usecase::{
+        update::UpdateBookUsecaseImpl, CreateBookUsecaseImpl, ReadBookTypeUsecaseImpl,
+        ReadBookUsecaseImpl,
+    },
 };
 
 pub fn create_router(pool: Arc<PgPool>) -> Router {
@@ -55,6 +63,18 @@ pub fn read_type_router(pool: Arc<PgPool>) -> Router {
         .route(
             "/",
             get(read_book_types::<ReadBookTypeUsecaseImpl<GetBookTypeRepoImpl>>),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub fn update_router(pool: Arc<PgPool>) -> Router {
+    let repository = UpdateBookRepoImpl::new(pool);
+    let usecase = UpdateBookUsecaseImpl::new(Arc::new(repository));
+
+    Router::new()
+        .route(
+            "/:book_id",
+            patch(update_book::<UpdateBookUsecaseImpl<UpdateBookRepoImpl>>),
         )
         .layer(Extension(Arc::new(usecase)))
 }

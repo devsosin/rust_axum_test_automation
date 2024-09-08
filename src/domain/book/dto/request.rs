@@ -19,3 +19,18 @@ impl NewBook {
         &self.book_type
     }
 }
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Serialize)]
+pub struct EditBook {
+    name: String,
+}
+
+impl EditBook {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+}
