@@ -33,7 +33,7 @@ CREATE TABLE tb_book_type(
 CREATE TABLE tb_book(
     id SERIAL PRIMARY KEY,
     name VARCHAR(16) NOT NULL,
-    type_id SMALLINT,
+    type_id SMALLINT NOT NULL,
 
     FOREIGN KEY (type_id) REFERENCES tb_book_type(id)
 );

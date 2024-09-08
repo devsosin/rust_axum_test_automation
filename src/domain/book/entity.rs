@@ -36,6 +36,9 @@ pub struct BookType {
 }
 
 impl BookType {
+    pub fn new(id: i16, name: String) -> Self {
+        Self { id, name }
+    }
     pub fn test_new() -> Self {
         Self {
             id: 1,
