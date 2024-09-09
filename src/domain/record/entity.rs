@@ -35,6 +35,11 @@ impl Record {
         }
     }
 
+    pub(crate) fn id(mut self, id: Option<i64>) -> Self {
+        self.id = id;
+        self
+    }
+
     pub(crate) fn memo(mut self, memo: Option<String>) -> Self {
         self.memo = memo;
         self

@@ -1,12 +1,20 @@
 use std::sync::Arc;
 
-use axum::{routing::post, Extension, Router};
-use create::create_record;
+use axum::{
+    routing::{get, post},
+    Extension, Router,
+};
+use read::{read_record, read_records};
 use sqlx::PgPool;
 
-use super::{repository::save::SaveRecordRepoImpl, usecase::create::CreateRecordUsecaseImpl};
-
 mod create;
+mod read;
+
+use super::{
+    repository::{get_record::GetRecordRepoImpl, save::SaveRecordRepoImpl},
+    usecase::{create::CreateRecordUsecaseImpl, read::ReadRecordUsecaseImpl},
+};
+use create::create_record;
 
 pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
     let repository = SaveRecordRepoImpl::new(pool.clone());
@@ -16,6 +24,22 @@ pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
         .route(
             "/",
             post(create_record::<CreateRecordUsecaseImpl<SaveRecordRepoImpl>>),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
+    let repository = GetRecordRepoImpl::new(pool.clone());
+    let usecase = ReadRecordUsecaseImpl::new(Arc::new(repository));
+
+    Router::new()
+        .route(
+            "/",
+            get(read_records::<ReadRecordUsecaseImpl<GetRecordRepoImpl>>),
+        )
+        .route(
+            "/:record_id",
+            get(read_record::<ReadRecordUsecaseImpl<GetRecordRepoImpl>>),
         )
         .layer(Extension(Arc::new(usecase)))
 }

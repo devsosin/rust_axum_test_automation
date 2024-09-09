@@ -201,3 +201,7 @@ INSERT INTO tb_sub_category(base_id, name) VALUES
 
 INSERT INTO tb_connect(name) VALUES
     ('테스트 커넥트');
+
+INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, created_at, asset_id) 
+        VALUES (1, 18, 15000, '감자탕', NOW(), NOW(), NULL);
+        
