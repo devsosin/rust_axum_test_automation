@@ -50,7 +50,10 @@ mod tests {
 
     use crate::{
         config::database::create_connection_pool,
-        domain::book::repository::{delete::delete_book, get_book::get_book, save::save_book},
+        domain::book::{
+            entity::Book,
+            repository::{delete::delete_book, get_book::get_book, save::save_book},
+        },
     };
 
     #[tokio::test]
@@ -66,8 +69,9 @@ mod tests {
     async fn check_delete_book_success() {
         // Arrange
         let pool = create_connection_pool().await;
+        let book = Book::new(None, "삭제용 가계부".to_string(), 1);
 
-        let target_id = save_book(&pool, "삭제용 가계부", "개인").await.unwrap();
+        let target_id = save_book(&pool, book).await.unwrap();
 
         // Act
         let result = delete_book(&pool, target_id).await;

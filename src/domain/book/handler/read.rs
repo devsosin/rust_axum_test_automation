@@ -67,9 +67,9 @@ mod tests {
 
         mock_usecase.expect_read_books().returning(|| {
             Ok(vec![
-                Book::test_new(1),
-                Book::test_new(2),
-                Book::test_new(3),
+                Book::new(Some(1), "가계부 1".to_string(), 1),
+                Book::new(Some(2), "가계부 2".to_string(), 2),
+                Book::new(Some(3), "가계부 3".to_string(), 1),
             ])
         });
 
@@ -97,9 +97,9 @@ mod tests {
 
         mock_usecase.expect_read_books().returning(|| {
             Ok(vec![
-                Book::test_new(1),
-                Book::test_new(2),
-                Book::test_new(3),
+                Book::new(Some(1), "가계부 1".to_string(), 1),
+                Book::new(Some(2), "가계부 2".to_string(), 2),
+                Book::new(Some(3), "가계부 3".to_string(), 1),
             ])
         });
 
@@ -130,7 +130,7 @@ mod tests {
 
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
-        assert_eq!(body_json[0]["name"], "테스트 가계부");
+        assert_eq!(body_json[0]["name"], "가계부 1");
     }
 
     #[tokio::test]
@@ -168,7 +168,7 @@ mod tests {
         mock_usecase
             .expect_read_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::test_new(i)));
+            .returning(|i| Ok(Book::new(Some(i), format!("가계부 {}", i), 1)));
 
         let app = Router::new()
             .route(
@@ -199,7 +199,7 @@ mod tests {
         mock_usecase
             .expect_read_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::test_new(i)));
+            .returning(|i| Ok(Book::new(Some(i), format!("가계부 {}", i), 1)));
 
         let app = Router::new()
             .route(

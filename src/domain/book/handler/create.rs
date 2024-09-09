@@ -96,7 +96,7 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_status() {
         // Arrange
-        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let new_book = NewBook::new("테스트 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
         let app = create_app(&new_book, Ok(1));
@@ -112,7 +112,7 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_body() {
         // Arrange
-        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let new_book = NewBook::new("테스트 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
         let app = create_app(&new_book, Ok(1));
@@ -140,7 +140,7 @@ mod tests {
 
     #[tokio::test]
     async fn check_create_book_failure_no_book_type() {
-        let new_book = NewBook::new("테스트 가계부".to_string(), "없는 카테".to_string());
+        let new_book = NewBook::new("테스트 가계부".to_string(), -3);
         let json_body = to_string(&new_book).unwrap();
 
         let app = create_app(&new_book, Err("없는 카테고리입니다.".to_string()));
@@ -155,7 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn check_create_book_failure_duplicate() {
-        let new_book = NewBook::new("테스트 가계부".to_string(), "개인".to_string());
+        let new_book = NewBook::new("테스트 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
         let app = create_app(&new_book, Err("중복된 가계부입니다.".to_string()));

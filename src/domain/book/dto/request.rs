@@ -1,27 +1,33 @@
 use serde::{Deserialize, Serialize};
 
+use crate::domain::book::entity::Book;
+
 #[derive(Deserialize, Clone, Debug, PartialEq, Serialize)]
-pub struct NewBook {
+pub(crate) struct NewBook {
     name: String,
-    book_type: String,
+    type_id: i16,
 }
 
 impl NewBook {
-    pub fn new(name: String, book_type: String) -> Self {
-        Self { name, book_type }
+    pub fn new(name: String, type_id: i16) -> Self {
+        Self { name, type_id }
     }
 
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
-    pub fn get_book_type(&self) -> &str {
-        &self.book_type
+    pub fn get_type_id(&self) -> i16 {
+        self.type_id
+    }
+
+    pub fn to_entity(&self) -> Book {
+        Book::new(None, self.name.to_owned(), self.type_id)
     }
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Serialize)]
-pub struct EditBook {
+pub(crate) struct EditBook {
     name: String,
 }
 

@@ -116,18 +116,17 @@ mod tests {
         mock_repo
             .expect_get_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::test_new(i)));
+            .returning(|i| Ok(Book::new(Some(i), "새 가계부".to_string(), 1)));
 
         let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
 
         // Act
-
         let result = usecase.read_book(id).await;
         assert!(result.is_ok());
         let result = result.unwrap();
 
         // Assert
-        assert_eq!(result.get_id(), id);
+        assert_eq!(result.get_id().unwrap(), id);
     }
 
     #[tokio::test]

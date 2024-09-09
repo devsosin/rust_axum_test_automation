@@ -36,9 +36,8 @@ pub async fn create_book<T: SaveBookRepo>(
     repository: &T,
     new_book: &NewBook,
 ) -> Result<i32, String> {
-    repository
-        .save_book(new_book.get_name(), new_book.get_book_type())
-        .await
+    let book = new_book.to_entity();
+    repository.save_book(book).await
 }
 
 #[cfg(test)]
@@ -50,7 +49,7 @@ mod tests {
 
     use crate::domain::book::{
         dto::request::NewBook,
-        entity::BookType,
+        entity::{Book, BookType},
         repository::{get_book_type::GetBookTypeRepo, save::SaveBookRepo},
     };
 
@@ -61,7 +60,7 @@ mod tests {
 
         #[async_trait]
         impl SaveBookRepo for SaveBookRepoImpl {
-            async fn save_book(&self, name: &str, book_type: &str) -> Result<i32, String>;
+            async fn save_book(&self, book: Book) -> Result<i32, String>;
         }
     }
     mock! {
@@ -79,16 +78,13 @@ mod tests {
         // Arrange
         let mut mock_repo = MockSaveBookRepoImpl::new();
 
-        let new_book = NewBook::new("새 가계부".to_string(), "일반".to_string());
+        let new_book = NewBook::new("새 가계부".to_string(), 1);
 
         // 모킹 동작 설정
         mock_repo
             .expect_save_book()
-            .with(
-                predicate::eq(new_book.get_name().to_owned()),
-                predicate::eq(new_book.get_book_type().to_owned()),
-            )
-            .returning(|_, _| Ok(1)); // 성공 시 id 1반환
+            .with(predicate::eq(new_book.to_entity()))
+            .returning(|_| Ok(1)); // 성공 시 id 1반환
 
         let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
 
@@ -107,15 +103,12 @@ mod tests {
         // Arrnge
         let mut mock_repo = MockSaveBookRepoImpl::new();
 
-        let new_book = NewBook::new("새 가계부".to_string(), "개인".to_string());
+        let new_book = NewBook::new("새 가계부".to_string(), 1);
 
         mock_repo
             .expect_save_book()
-            .with(
-                predicate::eq(new_book.get_name().to_owned()),
-                predicate::eq(new_book.get_book_type().to_owned()),
-            )
-            .returning(|_, _| Err("에러가 발생했습니다.".to_string())); // repo단위 에러 반환
+            .with(predicate::eq(new_book.to_entity()))
+            .returning(|_| Err("에러가 발생했습니다.".to_string())); // repo단위 에러 반환
 
         let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
 

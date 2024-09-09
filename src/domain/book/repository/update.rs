@@ -50,7 +50,10 @@ mod tests {
 
     use crate::{
         config::database::create_connection_pool,
-        domain::book::repository::{get_book::get_book, save::save_book, update::update_book},
+        domain::book::{
+            entity::Book,
+            repository::{get_book::get_book, save::save_book, update::update_book},
+        },
     };
 
     #[tokio::test]
@@ -66,8 +69,9 @@ mod tests {
     async fn check_book_update_success() {
         // Arrange
         let pool = create_connection_pool().await;
+        let book = Book::new(None, "수정용 가계부".to_string(), 1);
 
-        let inserted_id = save_book(&pool, "수정용 가계부", "개인").await.unwrap();
+        let inserted_id = save_book(&pool, book).await.unwrap();
         let target_name = "변경 가계부";
 
         // Act
