@@ -7,11 +7,11 @@ use axum::{
 
 use sqlx::PgPool;
 
-pub(crate) mod create;
-pub(crate) mod delete;
-pub(crate) mod read;
-pub(crate) mod read_type;
-pub(crate) mod update;
+mod create;
+mod delete;
+mod read;
+mod read_type;
+mod update;
 
 use create::create_book;
 use delete::delete_book;

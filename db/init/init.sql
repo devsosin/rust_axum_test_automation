@@ -198,3 +198,6 @@ INSERT INTO tb_sub_category(base_id, name) VALUES
 
 -- 큰 카테고리만 있는 경우? 있으면 안될것같은데
 -- 세부로 들어가면 주식 종목 등등으로 구분되어 빠질 것
+
+INSERT INTO tb_connect(name) VALUES
+    ('테스트 커넥트');

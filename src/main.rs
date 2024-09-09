@@ -22,9 +22,12 @@ pub mod global {
 
 pub mod domain {
     pub mod book;
+    pub mod record;
 }
 
-use crate::domain::book::route::get_router as book_router;
+use crate::domain::{
+    book::route::get_router as book_router, record::route::get_router as record_router,
+};
 
 #[tokio::main]
 async fn main() {
@@ -43,17 +46,17 @@ async fn main() {
     let pool = Arc::new(pool);
 
     let book_router = book_router(pool.clone());
+    let record_router = record_router(pool.clone());
 
     let app = Router::new()
         .route("/", axum::routing::get(|| async { "{\"status\": \"OK\"}" }))
-        .nest("/api/v1/book", book_router);
+        .nest("/api/v1/book", book_router)
+        .nest("/api/v1/record", record_router);
 
     let app =
         app.fallback(|| async { (StatusCode::NOT_FOUND, "존재하지 않는 API입니다.") });
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
     axum::serve(listener, app).await.unwrap();

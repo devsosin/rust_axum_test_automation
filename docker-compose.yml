@@ -11,7 +11,7 @@ services:
       # - ./db/data/:/var/lib/postgresql/data/
       - ./db/init/:/docker-entrypoint-initdb.d/
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      test: ["CMD-SHELL", "pg_isready -U sosiny"]
       interval: 6s
       retries: 5
 

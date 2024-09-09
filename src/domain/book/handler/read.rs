@@ -231,7 +231,8 @@ mod tests {
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
         // Assert
-        assert_eq!(body_json["name"], "테스트 가계부");
+        assert_eq!(body_json["id"], id);
+        assert_eq!(body_json["name"], format!("가계부 {}", id));
     }
 
     #[tokio::test]
