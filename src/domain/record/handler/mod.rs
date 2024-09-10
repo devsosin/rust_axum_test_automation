@@ -1,27 +1,31 @@
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Extension, Router,
 };
-use read::{read_record, read_records};
+use delete::delete_record;
 use sqlx::PgPool;
+
+use create::create_record;
+use read::{read_record, read_records};
 use update::update_record;
 
 mod create;
+mod delete;
 mod read;
 mod update;
 
 use super::{
     repository::{
-        get_record::GetRecordRepoImpl, save::SaveRecordRepoImpl, update::UpdateRecordRepoImpl,
+        delete::DeleteRecordRepoImpl, get_record::GetRecordRepoImpl, save::SaveRecordRepoImpl,
+        update::UpdateRecordRepoImpl,
     },
     usecase::{
-        create::CreateRecordUsecaseImpl, read::ReadRecordUsecaseImpl,
-        update::UpdateRecordUsecaseImpl,
+        create::CreateRecordUsecaseImpl, delete::DeleteRecordUsecaseImpl,
+        read::ReadRecordUsecaseImpl, update::UpdateRecordUsecaseImpl,
     },
 };
-use create::create_record;
 
 pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
     let repository = SaveRecordRepoImpl::new(pool.clone());
@@ -59,6 +63,18 @@ pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
         .route(
             "/:record_id",
             patch(update_record::<UpdateRecordUsecaseImpl<UpdateRecordRepoImpl>>),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub(crate) fn delete_router(pool: Arc<PgPool>) -> Router {
+    let repository = DeleteRecordRepoImpl::new(pool.clone());
+    let usecase = DeleteRecordUsecaseImpl::new(Arc::new(repository));
+
+    Router::new()
+        .route(
+            "/:record_id",
+            delete(delete_record::<DeleteRecordUsecaseImpl<DeleteRecordRepoImpl>>),
         )
         .layer(Extension(Arc::new(usecase)))
 }
