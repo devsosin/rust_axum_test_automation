@@ -58,7 +58,7 @@ async fn validate_connect_ids(pool: &PgPool, connect_ids: &Option<Vec<i32>>) -> 
     Ok(())
 }
 
-async fn save_record(
+pub(crate) async fn save_record(
     pool: &PgPool,
     record: Record,
     connect_ids: Option<Vec<i32>>,
@@ -111,7 +111,7 @@ async fn save_record(
 
 #[cfg(test)]
 mod tests {
-    use chrono::{NaiveDateTime, Utc};
+    use chrono::NaiveDateTime;
 
     use crate::{
         config::database::create_connection_pool,

@@ -97,3 +97,53 @@ impl Record {
         &self.asset_id
     }
 }
+
+#[derive(Clone, PartialEq, Debug)]
+pub(crate) enum FieldUpdate<T> {
+    Set(T),
+    SetNone,
+    NoChange,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub(crate) struct UpdateRecord {
+    sub_category_id: FieldUpdate<i32>,
+    amount: FieldUpdate<i32>,
+    memo: FieldUpdate<String>,
+    target_dt: FieldUpdate<NaiveDateTime>,
+    asset_id: FieldUpdate<i32>,
+}
+
+impl UpdateRecord {
+    pub(crate) fn new(
+        sub_category_id: FieldUpdate<i32>,
+        amount: FieldUpdate<i32>,
+        memo: FieldUpdate<String>,
+        target_dt: FieldUpdate<NaiveDateTime>,
+        asset_id: FieldUpdate<i32>,
+    ) -> Self {
+        Self {
+            sub_category_id,
+            amount,
+            memo,
+            target_dt,
+            asset_id,
+        }
+    }
+
+    pub(crate) fn get_sub_category_id(&self) -> &FieldUpdate<i32> {
+        &self.sub_category_id
+    }
+    pub(crate) fn get_amount(&self) -> &FieldUpdate<i32> {
+        &self.amount
+    }
+    pub(crate) fn get_memo(&self) -> &FieldUpdate<String> {
+        &self.memo
+    }
+    pub(crate) fn get_target_dt(&self) -> &FieldUpdate<NaiveDateTime> {
+        &self.target_dt
+    }
+    pub(crate) fn get_asset_id(&self) -> &FieldUpdate<i32> {
+        &self.asset_id
+    }
+}

@@ -44,7 +44,7 @@ async fn get_list(pool: &PgPool) -> Result<Vec<Record>, String> {
     Ok(rows)
 }
 
-async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, String> {
+pub(crate) async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, String> {
     let row = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE id = $1")
         .bind(id)
         .fetch_one(pool)
