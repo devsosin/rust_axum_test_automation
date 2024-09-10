@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{entity::Book, repository::get_book::GetBookRepo};
+use crate::{
+    domain::book::{entity::Book, repository::get_book::GetBookRepo},
+    global::errors::CustomError,
+};
 
 pub(crate) struct ReadBookUsecaseImpl<T>
 where
@@ -13,8 +16,8 @@ where
 
 #[async_trait]
 pub(crate) trait ReadBookUsecase: Send + Sync {
-    async fn read_books(&self) -> Result<Vec<Book>, String>;
-    async fn read_book(&self, id: i32) -> Result<Book, String>;
+    async fn read_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
+    async fn read_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
 }
 
 impl<T> ReadBookUsecaseImpl<T>
@@ -31,20 +34,20 @@ impl<T> ReadBookUsecase for ReadBookUsecaseImpl<T>
 where
     T: GetBookRepo,
 {
-    async fn read_books(&self) -> Result<Vec<Book>, String> {
+    async fn read_books(&self) -> Result<Vec<Book>, Arc<CustomError>> {
         // Dereferencing Arc to get to the inner T
         read_books(&*self.repository).await
     }
-    async fn read_book(&self, id: i32) -> Result<Book, String> {
+    async fn read_book(&self, id: i32) -> Result<Book, Arc<CustomError>> {
         read_book(&*self.repository, id).await
     }
 }
 
-async fn read_books<T: GetBookRepo>(repository: &T) -> Result<Vec<Book>, String> {
+async fn read_books<T: GetBookRepo>(repository: &T) -> Result<Vec<Book>, Arc<CustomError>> {
     repository.get_books().await
 }
 
-async fn read_book<T: GetBookRepo>(repository: &T, id: i32) -> Result<Book, String> {
+async fn read_book<T: GetBookRepo>(repository: &T, id: i32) -> Result<Book, Arc<CustomError>> {
     repository.get_book(id).await
 }
 
@@ -56,6 +59,7 @@ mod tests {
     use mockall::{mock, predicate};
 
     use crate::domain::book::{entity::Book, repository::get_book::GetBookRepo};
+    use crate::global::errors::CustomError;
 
     use super::{ReadBookUsecase, ReadBookUsecaseImpl};
 
@@ -64,8 +68,8 @@ mod tests {
 
         #[async_trait]
         impl GetBookRepo for GetBookRepoImpl {
-            async fn get_books(&self) -> Result<Vec<Book>, String>;
-            async fn get_book(&self, id: i32) -> Result<Book, String>;
+            async fn get_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
+            async fn get_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
         }
     }
 
@@ -94,9 +98,11 @@ mod tests {
         let mut mock_repo = MockGetBookRepoImpl::new();
 
         // 발생할 수 있는 에러케이스? 데이터베이스 접속 에러
-        mock_repo
-            .expect_get_books()
-            .returning(|| Err("에러가 발생하였습니다.".to_string()));
+        mock_repo.expect_get_books().returning(|| {
+            Err(Arc::new(CustomError::Unexpected(anyhow::Error::msg(
+                "에러 발생",
+            ))))
+        });
 
         let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
 
@@ -138,7 +144,11 @@ mod tests {
         mock_repo
             .expect_get_book()
             .with(predicate::eq(id))
-            .returning(|i| Err("에러가 발생했습니다.".to_string()));
+            .returning(|i| {
+                Err(Arc::new(CustomError::Unexpected(anyhow::Error::msg(
+                    "에러 발생",
+                ))))
+            });
 
         let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
 

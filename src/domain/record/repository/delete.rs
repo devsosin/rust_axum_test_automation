@@ -3,13 +3,15 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
+use crate::global::errors::CustomError;
+
 pub(crate) struct DeleteRecordRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
 pub(crate) trait DeleteRecordRepo: Send + Sync {
-    async fn delete_record(&self, id: i64) -> Result<(), String>;
+    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
 }
 
 impl DeleteRecordRepoImpl {
@@ -20,24 +22,29 @@ impl DeleteRecordRepoImpl {
 
 #[async_trait]
 impl DeleteRecordRepo for DeleteRecordRepoImpl {
-    async fn delete_record(&self, id: i64) -> Result<(), String> {
+    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>> {
         delete_record(&self.pool, id).await
     }
 }
 
-async fn delete_record(pool: &PgPool, id: i64) -> Result<(), String> {
+async fn delete_record(pool: &PgPool, id: i64) -> Result<(), Arc<CustomError>> {
     let result = sqlx::query("DELETE FROM tb_record WHERE id = $1")
         .bind(id)
         .execute(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("Delete(Record{}) : {:?}", id, e);
+            let err_msg = format!("Error(DeleteRecord {}): {:?}", id, &e);
             tracing::error!("{}", err_msg);
-            err_msg
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     if result.rows_affected() == 0 {
-        return Err(format!("{} id not found", id));
+        return Err(Arc::new(CustomError::NotFound("Record".to_string())));
     }
 
     Ok(())

@@ -12,11 +12,7 @@ where
 {
     match usecase.read_books().await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -29,7 +25,7 @@ where
 {
     match usecase.read_book(book_id).await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
-        Err(e) => (StatusCode::NOT_FOUND, Json(json!({"message": e}))).into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -44,10 +40,13 @@ mod tests {
     use serde_json::Value;
     use tower::ServiceExt;
 
-    use crate::domain::book::{
-        entity::Book,
-        handler::read::{read_book, read_books},
-        usecase::read::ReadBookUsecase,
+    use crate::{
+        domain::book::{
+            entity::Book,
+            handler::read::{read_book, read_books},
+            usecase::read::ReadBookUsecase,
+        },
+        global::errors::CustomError,
     };
 
     mock! {
@@ -55,8 +54,8 @@ mod tests {
 
         #[async_trait]
         impl ReadBookUsecase for ReadBookUsecaseImpl {
-            async fn read_books(&self) -> Result<Vec<Book>, String>;
-            async fn read_book(&self, id: i32) -> Result<Book, String>;
+            async fn read_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
+            async fn read_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
         }
     }
 
@@ -140,7 +139,7 @@ mod tests {
 
         mock_usecase
             .expect_read_books()
-            .returning(|| Err("에러가 발생했습니다.".to_string()));
+            .returning(|| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
 
         let app: Router = Router::new()
             .route("/api/v1/book", get(read_books::<MockReadBookUsecaseImpl>))
@@ -156,7 +155,7 @@ mod tests {
         let response = app.oneshot(req).await.unwrap();
 
         // Assert
-        assert_eq!(response.status(), 500)
+        assert_eq!(response.status(), 404)
     }
 
     #[tokio::test]
@@ -244,7 +243,7 @@ mod tests {
         mock_usecase
             .expect_read_book()
             .with(predicate::eq(id))
-            .returning(|_| Err("가계부를 찾지 못했습니다.".to_string()));
+            .returning(|_| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
 
         let app = Router::new()
             .route(

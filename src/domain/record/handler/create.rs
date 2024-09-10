@@ -19,11 +19,7 @@ where
             Json(json!({"message": "성공", "record_id": id})),
         )
             .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -39,14 +35,17 @@ mod tests {
     use tower::ServiceExt;
 
     use super::create_record;
-    use crate::domain::record::{dto::request::NewRecord, usecase::create::CreateRecordUsecase};
+    use crate::{
+        domain::record::{dto::request::NewRecord, usecase::create::CreateRecordUsecase},
+        global::errors::CustomError,
+    };
 
     mock! {
         CreateRecordUsecaseImpl {}
 
         #[async_trait]
         impl CreateRecordUsecase for CreateRecordUsecaseImpl {
-            async fn create_record(&self, new_record: &NewRecord) -> Result<i64, String>;
+            async fn create_record(&self, new_record: &NewRecord) -> Result<i64, Arc<CustomError>>;
         }
     }
 
@@ -159,7 +158,7 @@ mod tests {
         mock_usecase
             .expect_create_record()
             .with(predicate::eq(new_record.clone()))
-            .returning(|_| Err("sub category id not found".to_string()));
+            .returning(|_| Err(Arc::new(CustomError::NotFound("Category".to_string()))));
 
         let app = Router::new()
             .route(

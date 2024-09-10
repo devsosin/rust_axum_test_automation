@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::record::{dto::request::EditRecord, repository::update::UpdateRecordRepo};
+use crate::{
+    domain::record::{dto::request::EditRecord, repository::update::UpdateRecordRepo},
+    global::errors::CustomError,
+};
 
 pub(crate) struct UpdateRecordUsecaseImpl<T>
 where
@@ -13,7 +16,8 @@ where
 
 #[async_trait]
 pub trait UpdateRecordUsecase: Send + Sync {
-    async fn update_record(&self, id: i64, edit_record: EditRecord) -> Result<(), String>;
+    async fn update_record(&self, id: i64, edit_record: EditRecord)
+        -> Result<(), Arc<CustomError>>;
 }
 
 impl<T> UpdateRecordUsecaseImpl<T>
@@ -30,12 +34,20 @@ impl<T> UpdateRecordUsecase for UpdateRecordUsecaseImpl<T>
 where
     T: UpdateRecordRepo,
 {
-    async fn update_record(&self, id: i64, edit_record: EditRecord) -> Result<(), String> {
+    async fn update_record(
+        &self,
+        id: i64,
+        edit_record: EditRecord,
+    ) -> Result<(), Arc<CustomError>> {
         update_record(&*self.repository, id, edit_record).await
     }
 }
 
-async fn update_record<T>(repository: &T, id: i64, edit_record: EditRecord) -> Result<(), String>
+async fn update_record<T>(
+    repository: &T,
+    id: i64,
+    edit_record: EditRecord,
+) -> Result<(), Arc<CustomError>>
 where
     T: UpdateRecordRepo,
 {
@@ -44,11 +56,16 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use axum::async_trait;
     use mockall::{mock, predicate};
 
-    use crate::domain::record::{
-        dto::request::EditRecord, entity::UpdateRecord, repository::update::UpdateRecordRepo,
+    use crate::{
+        domain::record::{
+            dto::request::EditRecord, entity::UpdateRecord, repository::update::UpdateRecordRepo,
+        },
+        global::errors::CustomError,
     };
 
     use super::update_record;
@@ -58,7 +75,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordRepo for UpdateRecordRepoImpl {
-            async fn update_record(&self, id: i64, edit_record: UpdateRecord) -> Result<(), String>;
+            async fn update_record(&self, id: i64, edit_record: UpdateRecord) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -99,7 +116,7 @@ mod tests {
                 predicate::eq(id),
                 predicate::eq(edit_record.clone().to_update()),
             )
-            .returning(|_, _| Err("id not found".to_string()));
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         // Act
         let result = update_record(&mock_repo, id, edit_record).await;

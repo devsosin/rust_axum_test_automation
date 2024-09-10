@@ -15,11 +15,7 @@ where
 {
     match usecase.delete_book(id).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -33,14 +29,17 @@ mod tests {
     use serde_json::Value;
     use tower::ServiceExt;
 
-    use crate::domain::book::{handler::delete::delete_book, usecase::delete::DeleteBookUsecase};
+    use crate::{
+        domain::book::{handler::delete::delete_book, usecase::delete::DeleteBookUsecase},
+        global::errors::CustomError,
+    };
 
     mock! {
         DeleteBookUsecaseImpl {}
 
         #[async_trait]
         impl DeleteBookUsecase for DeleteBookUsecaseImpl {
-            async fn delete_book(&self, id: i32) -> Result<(), String>;
+            async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -52,7 +51,7 @@ mod tests {
             .unwrap()
     }
 
-    fn get_router(id: i32, ret: Result<(), String>) -> Router {
+    fn get_router(id: i32, ret: Result<(), Arc<CustomError>>) -> Router {
         let mut mock_usecase = MockDeleteBookUsecaseImpl::new();
         mock_usecase
             .expect_delete_book()
@@ -114,7 +113,7 @@ mod tests {
     async fn check_delete_book_id_not_found() {
         // Arrange
         let id = -32;
-        let app = get_router(id, Err("target id not found".to_string()));
+        let app = get_router(id, Err(Arc::new(CustomError::NotFound("Book".to_string()))));
         let req = get_request(id);
 
         // Act

@@ -12,11 +12,7 @@ where
 {
     match usecase.read_book_types().await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -34,13 +30,14 @@ mod tests {
         entity::BookType, handler::read_type::read_book_types,
         usecase::read_type::ReadBookTypeUsecase,
     };
+    use crate::global::errors::CustomError;
 
     mock! {
         ReadBookTypeUsecaseImpl {}
 
         #[async_trait]
         impl ReadBookTypeUsecase for ReadBookTypeUsecaseImpl {
-            async fn read_book_types(&self) -> Result<Vec<BookType>, String>;
+            async fn read_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
         }
     }
 

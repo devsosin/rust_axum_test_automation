@@ -3,7 +3,10 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
-use crate::domain::record::entity::{FieldUpdate, UpdateRecord};
+use crate::{
+    domain::record::entity::{FieldUpdate, UpdateRecord},
+    global::errors::CustomError,
+};
 
 pub(crate) struct UpdateRecordRepoImpl {
     pool: Arc<PgPool>,
@@ -11,7 +14,11 @@ pub(crate) struct UpdateRecordRepoImpl {
 
 #[async_trait]
 pub(crate) trait UpdateRecordRepo: Send + Sync {
-    async fn update_record(&self, id: i64, edit_record: UpdateRecord) -> Result<(), String>;
+    async fn update_record(
+        &self,
+        id: i64,
+        edit_record: UpdateRecord,
+    ) -> Result<(), Arc<CustomError>>;
 }
 
 impl UpdateRecordRepoImpl {
@@ -22,7 +29,11 @@ impl UpdateRecordRepoImpl {
 
 #[async_trait]
 impl UpdateRecordRepo for UpdateRecordRepoImpl {
-    async fn update_record(&self, id: i64, edit_record: UpdateRecord) -> Result<(), String> {
+    async fn update_record(
+        &self,
+        id: i64,
+        edit_record: UpdateRecord,
+    ) -> Result<(), Arc<CustomError>> {
         update_record(&self.pool, id, edit_record).await
     }
 }
@@ -32,7 +43,11 @@ fn make_query(index: &mut i32, field_name: &str) -> String {
     format!("{} = ${}, ", field_name, index)
 }
 
-async fn update_record(pool: &PgPool, id: i64, edit_record: UpdateRecord) -> Result<(), String> {
+async fn update_record(
+    pool: &PgPool,
+    id: i64,
+    edit_record: UpdateRecord,
+) -> Result<(), Arc<CustomError>> {
     // check_validation
 
     let mut query: String = "UPDATE tb_record SET ".to_string();
@@ -73,7 +88,7 @@ async fn update_record(pool: &PgPool, id: i64, edit_record: UpdateRecord) -> Res
     }
 
     if index == 0 {
-        return Err("no fields to update".to_string());
+        return Err(Arc::new(CustomError::NoFieldUpdate("Record".to_string())));
     }
 
     query.pop();
@@ -118,13 +133,18 @@ async fn update_record(pool: &PgPool, id: i64, edit_record: UpdateRecord) -> Res
     }
 
     let result = query_builder.bind(id).execute(pool).await.map_err(|e| {
-        let err_msg = format!("Update(Record){}: {}", id, e);
+        let err_msg = format!("Update(Record {}): {}", id, e);
         tracing::error!("{}", err_msg);
-        err_msg
+
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
     })?;
 
     if result.rows_affected() == 0 {
-        return Err(format!("Update(Record){}: not found", id));
+        return Err(Arc::new(CustomError::NotFound("Record".to_string())));
     }
 
     Ok(())
@@ -177,7 +197,7 @@ mod tests {
 
         // Act
         let result = update_record(&pool, new_id, edit_record).await;
-        assert!(result.clone().map_err(|e| println!("{}", e)).is_ok());
+        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
         let row = get_by_id(&pool, new_id).await.unwrap();

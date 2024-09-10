@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
-use crate::domain::book::entity::Book;
+use crate::{domain::book::entity::Book, global::errors::CustomError};
 
 pub(crate) struct GetBookRepoImpl {
     pool: Arc<PgPool>,
@@ -11,8 +11,8 @@ pub(crate) struct GetBookRepoImpl {
 
 #[async_trait]
 pub(crate) trait GetBookRepo: Send + Sync {
-    async fn get_books(&self) -> Result<Vec<Book>, String>;
-    async fn get_book(&self, id: i32) -> Result<Book, String>;
+    async fn get_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
+    async fn get_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
 }
 
 impl GetBookRepoImpl {
@@ -23,16 +23,16 @@ impl GetBookRepoImpl {
 
 #[async_trait]
 impl GetBookRepo for GetBookRepoImpl {
-    async fn get_books(&self) -> Result<Vec<Book>, String> {
+    async fn get_books(&self) -> Result<Vec<Book>, Arc<CustomError>> {
         get_books(&self.pool).await
     }
 
-    async fn get_book(&self, id: i32) -> Result<Book, String> {
+    async fn get_book(&self, id: i32) -> Result<Book, Arc<CustomError>> {
         get_book(&self.pool, id).await
     }
 }
 
-async fn get_books(pool: &PgPool) -> Result<Vec<Book>, String> {
+async fn get_books(pool: &PgPool) -> Result<Vec<Book>, Arc<CustomError>> {
     let books: Vec<Book> = sqlx::query_as::<_, Book>(
         r#"
         SELECT * FROM tb_book
@@ -41,23 +41,34 @@ async fn get_books(pool: &PgPool) -> Result<Vec<Book>, String> {
     .fetch_all(pool)
     .await
     .map_err(|e| {
-        let err_msg = format!("Error(GetBooks): {:?}", e);
-        tracing::error!("{:?}", &err_msg);
-        err_msg
+        let err_msg = format!("Error(GetBooks): {:?}", &e);
+        tracing::error!("{}", err_msg);
+
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
     })?;
 
     Ok(books)
 }
 
-pub(crate) async fn get_book(pool: &PgPool, id: i32) -> Result<Book, String> {
+pub(crate) async fn get_book(pool: &PgPool, id: i32) -> Result<Book, Arc<CustomError>> {
     let book = sqlx::query_as::<_, Book>("SELECT * FROM tb_book WHERE id=$1")
         .bind(id)
         .fetch_one(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("Error(GetBook{}): {}", id, e);
-            tracing::error!("{:?}", &err_msg);
-            err_msg
+            let err_msg = format!("Error(GetBook {}): {:?}", id, &e);
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                sqlx::Error::RowNotFound => CustomError::NotFound("Book".to_string()),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     Ok(book)
@@ -125,7 +136,7 @@ mod tests {
             .bind(id)
             .fetch_one(&pool)
             .await
-            .map_err(|e| e)
+            .map_err(|e| println!("{:?}", e))
             .unwrap();
 
         assert_eq!(result.get_name(), row.get_name());

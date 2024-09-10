@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::record::{entity::Record, repository::get_record::GetRecordRepo};
+use crate::{
+    domain::record::{entity::Record, repository::get_record::GetRecordRepo},
+    global::errors::CustomError,
+};
 
 pub(crate) struct ReadRecordUsecaseImpl<T>
 where
@@ -13,8 +16,8 @@ where
 
 #[async_trait]
 pub(crate) trait ReadRecordUsecase: Send + Sync {
-    async fn read_records(&self) -> Result<Vec<Record>, String>;
-    async fn read_record(&self, id: i64) -> Result<Record, String>;
+    async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>>;
+    async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>>;
 }
 
 impl<T> ReadRecordUsecaseImpl<T>
@@ -31,23 +34,23 @@ impl<T> ReadRecordUsecase for ReadRecordUsecaseImpl<T>
 where
     T: GetRecordRepo,
 {
-    async fn read_records(&self) -> Result<Vec<Record>, String> {
+    async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>> {
         read_records(&*self.repository).await
     }
 
-    async fn read_record(&self, id: i64) -> Result<Record, String> {
+    async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>> {
         read_record(&*self.repository, id).await
     }
 }
 
-async fn read_records<T>(repository: &T) -> Result<Vec<Record>, String>
+async fn read_records<T>(repository: &T) -> Result<Vec<Record>, Arc<CustomError>>
 where
     T: GetRecordRepo,
 {
     repository.get_list().await
 }
 
-async fn read_record<T>(repository: &T, id: i64) -> Result<Record, String>
+async fn read_record<T>(repository: &T, id: i64) -> Result<Record, Arc<CustomError>>
 where
     T: GetRecordRepo,
 {
@@ -56,14 +59,19 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use axum::async_trait;
     use chrono::NaiveDateTime;
     use mockall::{mock, predicate};
 
-    use crate::domain::record::{
-        entity::Record,
-        repository::get_record::GetRecordRepo,
-        usecase::read::{read_record, read_records},
+    use crate::{
+        domain::record::{
+            entity::Record,
+            repository::get_record::GetRecordRepo,
+            usecase::read::{read_record, read_records},
+        },
+        global::errors::CustomError,
     };
 
     mock! {
@@ -71,8 +79,8 @@ mod tests {
 
         #[async_trait]
         impl GetRecordRepo for GetRecordRepoImpl {
-            async fn get_list(&self) -> Result<Vec<Record>, String>;
-            async fn get_by_id(&self, id: i64) -> Result<Record, String>;
+            async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>>;
+            async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>>;
         }
     }
 
@@ -117,7 +125,7 @@ mod tests {
 
         // Act
         let result = read_records::<MockGetRecordRepoImpl>(&mock_repo).await;
-        assert!(result.clone().map_err(|e| println!("{}", e)).is_ok());
+        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
@@ -159,7 +167,7 @@ mod tests {
 
         // Act
         let result = read_record(&mock_repo, id).await;
-        assert!(result.clone().map_err(|e| println!("{}", e)).is_ok());
+        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
@@ -174,7 +182,7 @@ mod tests {
         mock_repo
             .expect_get_by_id()
             .with(predicate::eq(id))
-            .returning(|i| Err(format!("id: {} not found", i)));
+            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         // Act
         let result = read_record(&mock_repo, id).await;

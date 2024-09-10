@@ -16,11 +16,7 @@ where
 {
     match usecase.update_record(id, edit_record).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -34,7 +30,10 @@ mod tests {
     use serde_json::{to_string, Value};
     use tower::ServiceExt;
 
-    use crate::domain::record::{dto::request::EditRecord, usecase::update::UpdateRecordUsecase};
+    use crate::{
+        domain::record::{dto::request::EditRecord, usecase::update::UpdateRecordUsecase},
+        global::errors::CustomError,
+    };
 
     use super::update_record;
 
@@ -43,7 +42,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordUsecase for UpdateRecordUsecaseImpl {
-            async fn update_record(&self, id: i64, edit_record: EditRecord) -> Result<(), String>;
+            async fn update_record(&self, id: i64, edit_record: EditRecord) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -136,7 +135,7 @@ mod tests {
         mock_usecase
             .expect_update_record()
             .with(predicate::eq(id), predicate::eq(edit_record.clone()))
-            .returning(|_, _| Err("id not found".to_string()));
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         let app = Router::new()
             .route(

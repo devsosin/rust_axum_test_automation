@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
-use crate::domain::record::entity::Record;
+use crate::{domain::record::entity::Record, global::errors::CustomError};
 
 pub(crate) struct GetRecordRepoImpl {
     pool: Arc<PgPool>,
@@ -11,8 +11,8 @@ pub(crate) struct GetRecordRepoImpl {
 
 #[async_trait]
 pub(crate) trait GetRecordRepo: Send + Sync {
-    async fn get_list(&self) -> Result<Vec<Record>, String>;
-    async fn get_by_id(&self, id: i64) -> Result<Record, String>;
+    async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>>;
+    async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>>;
 }
 
 impl GetRecordRepoImpl {
@@ -23,36 +23,47 @@ impl GetRecordRepoImpl {
 
 #[async_trait]
 impl GetRecordRepo for GetRecordRepoImpl {
-    async fn get_list(&self) -> Result<Vec<Record>, String> {
+    async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>> {
         get_list(&self.pool).await
     }
-    async fn get_by_id(&self, id: i64) -> Result<Record, String> {
+    async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>> {
         get_by_id(&self.pool, id).await
     }
 }
 
-async fn get_list(pool: &PgPool) -> Result<Vec<Record>, String> {
+async fn get_list(pool: &PgPool) -> Result<Vec<Record>, Arc<CustomError>> {
     let rows = sqlx::query_as::<_, Record>("SELECT * FROM tb_record")
         .fetch_all(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("GetList(Record): {:?}", e);
-            tracing::error!("{}", &err_msg);
-            err_msg
+            let err_msg = format!("Error(GetRecords): {:?}", &e);
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     Ok(rows)
 }
 
-pub(crate) async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, String> {
+pub(crate) async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, Arc<CustomError>> {
     let row = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE id = $1")
         .bind(id)
         .fetch_one(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("GetById(Record) {}: {:?}", id, e);
-            tracing::error!("{}", &err_msg);
-            err_msg
+            let err_msg = format!("Error(GetRecord {}): {:?}", id, &e);
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                sqlx::Error::RowNotFound => CustomError::NotFound("Record".to_string()),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     Ok(row)
@@ -84,7 +95,7 @@ mod tests {
 
         // Act
         let result = get_list(&pool).await;
-        assert!(result.clone().map_err(|e| println!("{}", e)).is_ok());
+        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
@@ -114,7 +125,7 @@ mod tests {
 
         // Act
         let result = get_by_id(&pool, id).await;
-        assert!(result.clone().map_err(|e| println!("{}", e)).is_ok());
+        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert

@@ -25,12 +25,8 @@ where
                 .into_response()
         }
         Err(err) => {
-            tracing::error!("Error: {}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"message": err})).into_response(),
-            )
-                .into_response()
+            tracing::error!("Error: {:?}", err);
+            err.as_ref().into_response()
         }
     }
 }
@@ -53,8 +49,11 @@ mod tests {
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
-    use crate::domain::book::{
-        dto::request::NewBook, handler::create::create_book, usecase::create::CreateBookUsecase,
+    use crate::{
+        domain::book::{
+            dto::request::NewBook, handler::create::create_book, usecase::create::CreateBookUsecase,
+        },
+        global::errors::CustomError,
     };
 
     mock! {
@@ -62,7 +61,7 @@ mod tests {
 
         #[async_trait]
         impl CreateBookUsecase for CreateBookUsecaseImpl {
-            async fn create_book(&self, new_book: &NewBook) -> Result<i32, String>;
+            async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>>;
         }
     }
 
@@ -76,7 +75,7 @@ mod tests {
         req
     }
 
-    fn create_app(new_book: &NewBook, ret: Result<i32, String>) -> Router {
+    fn create_app(new_book: &NewBook, ret: Result<i32, Arc<CustomError>>) -> Router {
         let mut usecase = MockCreateBookUsecaseImpl::new();
         usecase
             .expect_create_book()
@@ -143,7 +142,10 @@ mod tests {
         let new_book = NewBook::new("테스트 가계부".to_string(), -3);
         let json_body = to_string(&new_book).unwrap();
 
-        let app = create_app(&new_book, Err("없는 카테고리입니다.".to_string()));
+        let app = create_app(
+            &new_book,
+            Err(Arc::new(CustomError::NotFound("Category".to_string()))),
+        );
         let req = create_req(json_body);
 
         // Act
@@ -155,16 +157,19 @@ mod tests {
 
     #[tokio::test]
     async fn check_create_book_failure_duplicate() {
-        let new_book = NewBook::new("테스트 가계부".to_string(), 1);
+        let new_book = NewBook::new("중복 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
-        let app = create_app(&new_book, Err("중복된 가계부입니다.".to_string()));
+        let app = create_app(
+            &new_book,
+            Err(Arc::new(CustomError::Duplicated("Book".to_string()))),
+        );
         let req = create_req(json_body);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
 
         // Assert
-        assert_eq!(response.status(), 421)
+        assert_eq!(response.status(), 400)
     }
 }

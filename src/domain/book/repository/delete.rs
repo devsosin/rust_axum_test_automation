@@ -3,13 +3,15 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
+use crate::global::errors::CustomError;
+
 pub(crate) struct DeleteBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
 pub(crate) trait DeleteBookRepo: Send + Sync {
-    async fn delete_book(&self, id: i32) -> Result<(), String>;
+    async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>>;
 }
 
 impl DeleteBookRepoImpl {
@@ -20,26 +22,32 @@ impl DeleteBookRepoImpl {
 
 #[async_trait]
 impl DeleteBookRepo for DeleteBookRepoImpl {
-    async fn delete_book(&self, id: i32) -> Result<(), String> {
+    async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>> {
         delete_book(&self.pool, id).await
     }
 }
 
-async fn delete_book(pool: &PgPool, id: i32) -> Result<(), String> {
+async fn delete_book(pool: &PgPool, id: i32) -> Result<(), Arc<CustomError>> {
     let result = sqlx::query("DELETE FROM tb_book WHERE id = $1")
         .bind(id)
         .execute(pool)
         .await
         .map_err(|e| {
-            // database error or internal server error
-            let err_msg = format!("Delete(Book{}): {:?}", id, e);
-            tracing::error!(err_msg);
-            err_msg
+            let err_msg = format!("Error(DeleteBook {}): {:?}", id, &e);
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                // database error
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                // internal server error
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     if result.rows_affected() == 0 {
         // not found error
-        return Err("target id not found".to_string());
+        return Err(Arc::new(CustomError::NotFound("Book".to_string())));
     }
 
     Ok(())
@@ -75,9 +83,7 @@ mod tests {
 
         // Act
         let result = delete_book(&pool, target_id).await;
-        assert!(result
-            .map_err(|e| println!("delete book error: {:?}", e))
-            .is_ok());
+        assert!(result.map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
         let row = get_book(&pool, target_id).await;

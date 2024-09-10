@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{entity::BookType, repository::get_book_type::GetBookTypeRepo};
+use crate::{
+    domain::book::{entity::BookType, repository::get_book_type::GetBookTypeRepo},
+    global::errors::CustomError,
+};
 
 pub struct ReadBookTypeUsecaseImpl<T>
 where
@@ -13,7 +16,7 @@ where
 
 #[async_trait]
 pub trait ReadBookTypeUsecase: Send + Sync {
-    async fn read_book_types(&self) -> Result<Vec<BookType>, String>;
+    async fn read_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
 }
 
 impl<T> ReadBookTypeUsecaseImpl<T>
@@ -30,12 +33,14 @@ impl<T> ReadBookTypeUsecase for ReadBookTypeUsecaseImpl<T>
 where
     T: GetBookTypeRepo,
 {
-    async fn read_book_types(&self) -> Result<Vec<BookType>, String> {
+    async fn read_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>> {
         read_book_types(&*self.repository).await
     }
 }
 
-async fn read_book_types<T: GetBookTypeRepo>(repository: &T) -> Result<Vec<BookType>, String> {
+async fn read_book_types<T: GetBookTypeRepo>(
+    repository: &T,
+) -> Result<Vec<BookType>, Arc<CustomError>> {
     repository.get_book_types().await
 }
 
@@ -43,19 +48,22 @@ async fn read_book_types<T: GetBookTypeRepo>(repository: &T) -> Result<Vec<BookT
 mod tests {
     use axum::async_trait;
     use mockall::mock;
+    use std::sync::Arc;
 
     use crate::domain::book::{
         entity::BookType, repository::get_book_type::GetBookTypeRepo,
         usecase::read_type::read_book_types,
     };
 
+    use crate::global::errors::CustomError;
+
     mock! {
         GetBookTypeRepoImpl {}
 
         #[async_trait]
         impl GetBookTypeRepo for GetBookTypeRepoImpl {
-            async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
-            async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
+            async fn get_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
+            async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, Arc<CustomError>>;
         }
     }
 
@@ -87,9 +95,11 @@ mod tests {
 
         let mut mock_repo = MockGetBookTypeRepoImpl::new();
 
-        mock_repo
-            .expect_get_book_types()
-            .returning(|| Err("데이터베이스 연결 실패".to_string()));
+        mock_repo.expect_get_book_types().returning(|| {
+            Err(Arc::new(CustomError::Unexpected(anyhow::Error::msg(
+                "에러 발생",
+            ))))
+        });
 
         // Act
         let result = read_book_types(&mock_repo).await;

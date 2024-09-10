@@ -18,6 +18,7 @@ pub mod config {
 
 pub mod global {
     pub mod utils {}
+    pub mod errors;
 }
 
 pub mod domain {

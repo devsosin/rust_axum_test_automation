@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::{PgPool, Row};
 
-use crate::domain::book::entity::Book;
+use crate::{domain::book::entity::Book, global::errors::CustomError};
 
 pub(crate) struct SaveBookRepoImpl {
     pool: Arc<PgPool>,
@@ -11,7 +11,7 @@ pub(crate) struct SaveBookRepoImpl {
 
 #[async_trait]
 pub(crate) trait SaveBookRepo: Send + Sync {
-    async fn save_book(&self, book: Book) -> Result<i32, String>;
+    async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>>;
 }
 
 impl SaveBookRepoImpl {
@@ -22,12 +22,12 @@ impl SaveBookRepoImpl {
 
 #[async_trait]
 impl SaveBookRepo for SaveBookRepoImpl {
-    async fn save_book(&self, book: Book) -> Result<i32, String> {
+    async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>> {
         save_book(&self.pool, book).await
     }
 }
 
-pub(crate) async fn save_book(pool: &PgPool, book: Book) -> Result<i32, String> {
+pub(crate) async fn save_book(pool: &PgPool, book: Book) -> Result<i32, Arc<CustomError>> {
     // 한 유저 내에서는 같은 이름의 가계부 생성 불가
     // type_id sub_query
     let row = sqlx::query(
@@ -42,9 +42,14 @@ pub(crate) async fn save_book(pool: &PgPool, book: Book) -> Result<i32, String> 
     .fetch_one(pool)
     .await
     .map_err(|e| {
-        tracing::error!("Error: Inserting new book: {:?}", e);
-        let err_message = format!("가계부 생성 중 오류가 발생했습니다. {:?}", e);
-        err_message
+        let err_msg = format!("Error(SaveBook): {:?}", e);
+        tracing::error!("{}", err_msg);
+
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
     })?;
 
     let id: i32 = row.get("id");
@@ -88,7 +93,7 @@ mod tests {
 
         // Act: 메서드 호출을 통한 DB에 데이터 삽입
         let result = save_book(&pool, book.clone()).await;
-        let inserted_id = result.map_err(|e| println!("{}", e)).unwrap();
+        let inserted_id = result.map_err(|e| println!("{:?}", e)).unwrap();
         // assert!(result.is_ok()); // 삽입 성공 여부 확인
 
         // Assert: DB에서 직접 조회하여 검증
@@ -96,7 +101,7 @@ mod tests {
             .bind(inserted_id)
             .fetch_one(&pool)
             .await
-            .map_err(|err| err.to_string())
+            .map_err(|e| println!("{:?}", e))
             .unwrap();
 
         // 삽입된 데이터의 필드값 확인

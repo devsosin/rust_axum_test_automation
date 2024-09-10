@@ -16,11 +16,7 @@ where
 {
     match usecase.update_book(id, &edit_book).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -34,8 +30,12 @@ mod tests {
     use serde_json::{to_string, Value};
     use tower::ServiceExt;
 
-    use crate::domain::book::{
-        dto::request::EditBook, handler::update::update_book, usecase::update::UpdateBookUsecase,
+    use crate::{
+        domain::book::{
+            dto::request::EditBook, handler::update::update_book,
+            usecase::update::UpdateBookUsecase,
+        },
+        global::errors::CustomError,
     };
 
     mock! {
@@ -43,7 +43,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateBookUsecase for UpdateBookUsecaseImpl {
-            async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), String>;
+            async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -56,7 +56,7 @@ mod tests {
             .unwrap()
     }
 
-    pub fn get_router(id: i32, edit_book: EditBook, ret: Result<(), String>) -> Router {
+    pub fn get_router(id: i32, edit_book: EditBook, ret: Result<(), Arc<CustomError>>) -> Router {
         let mut mock_usecase = MockUpdateBookUsecaseImpl::new();
         mock_usecase
             .expect_update_book()
@@ -130,7 +130,7 @@ mod tests {
         let app = get_router(
             no_id,
             target_book.clone(),
-            Err("존재하지 않는 가계부입니다.".to_string()),
+            Err(Arc::new(CustomError::NotFound("Book".to_string()))),
         );
         let req = get_request(no_id, json_body);
 
@@ -143,11 +143,22 @@ mod tests {
 
     #[tokio::test]
     async fn check_update_book_duplicate() {
-        todo!()
         // Arrange
+        let id = 1;
+        let target_book = EditBook::new("중복 이름".to_string());
+        let json_body = to_string(&target_book).unwrap();
+
+        let app = get_router(
+            id,
+            target_book.clone(),
+            Err(Arc::new(CustomError::Duplicated("Book".to_string()))),
+        );
+        let req = get_request(id, json_body);
 
         // Act
+        let response = app.oneshot(req).await.unwrap();
 
         // Assert
+        assert_eq!(response.status(), 400)
     }
 }

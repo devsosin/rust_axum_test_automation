@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::record::repository::delete::DeleteRecordRepo;
+use crate::{domain::record::repository::delete::DeleteRecordRepo, global::errors::CustomError};
 
 pub(crate) struct DeleteRecordUsecaseImpl<T>
 where
@@ -13,7 +13,7 @@ where
 
 #[async_trait]
 pub(crate) trait DeleteRecordUsecase: Send + Sync {
-    async fn delete_record(&self, id: i64) -> Result<(), String>;
+    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
 }
 
 impl<T> DeleteRecordUsecaseImpl<T>
@@ -30,12 +30,12 @@ impl<T> DeleteRecordUsecase for DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    async fn delete_record(&self, id: i64) -> Result<(), String> {
+    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>> {
         delete_record(&*self.repository, id).await
     }
 }
 
-async fn delete_record<T>(repository: &T, id: i64) -> Result<(), String>
+async fn delete_record<T>(repository: &T, id: i64) -> Result<(), Arc<CustomError>>
 where
     T: DeleteRecordRepo,
 {
@@ -44,10 +44,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use axum::async_trait;
     use mockall::{mock, predicate};
 
-    use crate::domain::record::repository::delete::DeleteRecordRepo;
+    use crate::{
+        domain::record::repository::delete::DeleteRecordRepo, global::errors::CustomError,
+    };
 
     use super::delete_record;
 
@@ -56,7 +60,7 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordRepo for DeleteRecordRepoImpl{
-            async fn delete_record(&self, id: i64) -> Result<(), String>;
+            async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -87,7 +91,7 @@ mod tests {
         mock_repo
             .expect_delete_record()
             .with(predicate::eq(no_id))
-            .returning(|i| Err(format!("{} id not found", i)));
+            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         // Act
         let result = delete_record(&mock_repo, no_id).await;

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
-use crate::domain::book::entity::BookType;
+use crate::{domain::book::entity::BookType, global::errors::CustomError};
 
 pub(crate) struct GetBookTypeRepoImpl {
     pool: Arc<PgPool>,
@@ -11,8 +11,8 @@ pub(crate) struct GetBookTypeRepoImpl {
 
 #[async_trait]
 pub(crate) trait GetBookTypeRepo: Send + Sync {
-    async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
-    async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
+    async fn get_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
+    async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, Arc<CustomError>>;
 }
 
 impl GetBookTypeRepoImpl {
@@ -23,15 +23,15 @@ impl GetBookTypeRepoImpl {
 
 #[async_trait]
 impl GetBookTypeRepo for GetBookTypeRepoImpl {
-    async fn get_book_types(&self) -> Result<Vec<BookType>, String> {
+    async fn get_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>> {
         get_book_types(&self.pool).await
     }
-    async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String> {
+    async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, Arc<CustomError>> {
         get_book_type_by_name(&self.pool, name).await
     }
 }
 
-async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, String> {
+async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, Arc<CustomError>> {
     let rows: Vec<BookType> = sqlx::query_as::<_, BookType>(
         r#"
     SELECT * FROM tb_book_type
@@ -40,26 +40,39 @@ async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, String> {
     .fetch_all(pool)
     .await
     .map_err(|e| {
-        let err_msg = format!("Error(GetBookTypes): {:?}", e);
-        tracing::error!("{:?}", err_msg);
+        let err_msg = format!("Error(GetBookTypes): {:?}", &e);
+        tracing::error!("{}", err_msg);
 
-        err_msg
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            sqlx::Error::RowNotFound => CustomError::NotFound("Book Type".to_string()),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
     })?;
 
     Ok(rows)
 }
 
-pub async fn get_book_type_by_name(pool: &PgPool, name: &str) -> Result<BookType, String> {
+pub async fn get_book_type_by_name(
+    pool: &PgPool,
+    name: &str,
+) -> Result<BookType, Arc<CustomError>> {
     let row = sqlx::query_as::<_, BookType>("SELECT * FROM tb_book_type WHERE name = $1")
         .bind(name)
         .fetch_one(pool)
         .await
         .map_err(|e| {
             // row not found error
-            let err_msg = format!("Error(GetBookTypeByName): {:?}", e);
+            let err_msg = format!("Error(GetBookTypeByName {}): {:?}", name, e);
             tracing::error!("{:?}", err_msg);
-            // err_msg
-            "없는 카테고리입니다.".to_string()
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                sqlx::Error::RowNotFound => CustomError::NotFound("Book Type".to_string()),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     Ok(row)
@@ -67,8 +80,6 @@ pub async fn get_book_type_by_name(pool: &PgPool, name: &str) -> Result<BookType
 
 #[cfg(test)]
 mod tests {
-
-    use sqlx::Acquire;
 
     use crate::{
         config::database::create_connection_pool,
@@ -104,8 +115,6 @@ mod tests {
     async fn check_get_book_type_success() {
         // Arrange
         let pool = create_connection_pool().await;
-        let mut conn = pool.acquire().await.unwrap();
-        let transaction = conn.begin().await.unwrap();
 
         let name = "개인";
 
@@ -121,25 +130,16 @@ mod tests {
             .bind(name)
             .fetch_one(&pool)
             .await
-            .map_err(|e| {
-                // Error: RowNotFound
-                let err_message = format!("Error: {:?}", e);
-                tracing::error!("{:?}", err_message);
-                err_message
-            })
+            .map_err(|e| println!("{:?}", e))
             .unwrap();
 
         assert_eq!(row.get_id(), type_id);
-
-        transaction.rollback().await.unwrap();
     }
 
     #[tokio::test]
     async fn check_book_type_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
-        let mut conn = pool.acquire().await.unwrap();
-        let transaction = conn.begin().await.unwrap();
 
         let name = "없는 이름";
 
@@ -148,7 +148,5 @@ mod tests {
 
         // Assert: 존재하지 않는 것은 Err(RowNotFound) 반환
         assert!(result.is_err());
-
-        transaction.rollback().await.unwrap();
     }
 }

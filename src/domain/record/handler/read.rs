@@ -12,11 +12,7 @@ where
 {
     match usecase.read_records().await {
         Ok(records) => (StatusCode::OK, Json(json!(records))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -29,11 +25,7 @@ where
 {
     match usecase.read_record(id).await {
         Ok(record) => (StatusCode::OK, Json(json!(record))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        )
-            .into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -49,15 +41,18 @@ mod tests {
     use tower::ServiceExt;
 
     use super::{read_record, read_records};
-    use crate::domain::record::{entity::Record, usecase::read::ReadRecordUsecase};
+    use crate::{
+        domain::record::{entity::Record, usecase::read::ReadRecordUsecase},
+        global::errors::CustomError,
+    };
 
     mock! {
         ReadRecordUsecaseImpl {}
 
         #[async_trait]
         impl ReadRecordUsecase for ReadRecordUsecaseImpl {
-            async fn read_records(&self) -> Result<Vec<Record>, String>;
-            async fn read_record(&self, id: i64) -> Result<Record, String>;
+            async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>>;
+            async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>>;
         }
     }
     fn test_records() -> Vec<Record> {
@@ -271,7 +266,7 @@ mod tests {
         mock_usecase
             .expect_read_record()
             .with(predicate::eq(id))
-            .returning(|i| Err(format!("Record {} id not found", i)));
+            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         let app = Router::new()
             .route(

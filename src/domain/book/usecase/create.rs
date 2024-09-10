@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{dto::request::NewBook, repository::save::SaveBookRepo};
+use crate::{
+    domain::book::{dto::request::NewBook, repository::save::SaveBookRepo},
+    global::errors::CustomError,
+};
 
 pub struct CreateBookUsecaseImpl<T: SaveBookRepo> {
     repository: Arc<T>,
@@ -10,7 +13,7 @@ pub struct CreateBookUsecaseImpl<T: SaveBookRepo> {
 
 #[async_trait]
 pub trait CreateBookUsecase: Send + Sync {
-    async fn create_book(&self, new_book: &NewBook) -> Result<i32, String>;
+    async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>>;
 }
 
 impl<T> CreateBookUsecaseImpl<T>
@@ -27,7 +30,7 @@ impl<T> CreateBookUsecase for CreateBookUsecaseImpl<T>
 where
     T: SaveBookRepo,
 {
-    async fn create_book(&self, new_book: &NewBook) -> Result<i32, String> {
+    async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>> {
         create_book(&*self.repository, new_book).await
     }
 }
@@ -35,7 +38,7 @@ where
 pub async fn create_book<T: SaveBookRepo>(
     repository: &T,
     new_book: &NewBook,
-) -> Result<i32, String> {
+) -> Result<i32, Arc<CustomError>> {
     let book = new_book.to_entity();
     repository.save_book(book).await
 }
@@ -53,6 +56,8 @@ mod tests {
         repository::{get_book_type::GetBookTypeRepo, save::SaveBookRepo},
     };
 
+    use crate::global::errors::CustomError;
+
     use super::{CreateBookUsecase, CreateBookUsecaseImpl};
 
     mock! {
@@ -60,7 +65,7 @@ mod tests {
 
         #[async_trait]
         impl SaveBookRepo for SaveBookRepoImpl {
-            async fn save_book(&self, book: Book) -> Result<i32, String>;
+            async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>>;
         }
     }
     mock! {
@@ -68,8 +73,8 @@ mod tests {
 
         #[async_trait]
         impl GetBookTypeRepo for GetBookTypeRepoImpl {
-            async fn get_book_types(&self) -> Result<Vec<BookType>, String>;
-            async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, String>;
+            async fn get_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
+            async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, Arc<CustomError>>;
         }
     }
 
@@ -89,10 +94,11 @@ mod tests {
         let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
 
         // Act
-        let book_id = usecase.create_book(&new_book).await;
+        let result = usecase.create_book(&new_book).await;
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
-        assert_eq!(book_id, Ok(1));
+        assert_eq!(result.unwrap(), 1);
     }
 
     /*
@@ -108,7 +114,11 @@ mod tests {
         mock_repo
             .expect_save_book()
             .with(predicate::eq(new_book.to_entity()))
-            .returning(|_| Err("에러가 발생했습니다.".to_string())); // repo단위 에러 반환
+            .returning(|_| {
+                Err(Arc::new(CustomError::Unexpected(anyhow::Error::msg(
+                    "에러 발생",
+                ))))
+            }); // repo단위 에러 반환
 
         let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
 
@@ -116,6 +126,6 @@ mod tests {
         let result = usecase.create_book(&new_book).await;
 
         // Assert
-        assert_eq!(result, Err("에러가 발생했습니다.".to_string()));
+        assert!(result.is_err())
     }
 }

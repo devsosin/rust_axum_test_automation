@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::book::{dto::request::EditBook, repository::update::UpdateBookRepo};
+use crate::{
+    domain::book::{dto::request::EditBook, repository::update::UpdateBookRepo},
+    global::errors::CustomError,
+};
 
 pub struct UpdateBookUsecaseImpl<T>
 where
@@ -13,7 +16,7 @@ where
 
 #[async_trait]
 pub trait UpdateBookUsecase: Send + Sync {
-    async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), String>;
+    async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), Arc<CustomError>>;
 }
 
 impl<T> UpdateBookUsecaseImpl<T>
@@ -30,7 +33,7 @@ impl<T> UpdateBookUsecase for UpdateBookUsecaseImpl<T>
 where
     T: UpdateBookRepo,
 {
-    async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), String> {
+    async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), Arc<CustomError>> {
         update_book(&*self.repository, id, edit_book).await
     }
 }
@@ -39,12 +42,14 @@ pub async fn update_book<T: UpdateBookRepo>(
     repository: &T,
     id: i32,
     edit_book: &EditBook,
-) -> Result<(), String> {
+) -> Result<(), Arc<CustomError>> {
     repository.update_book(id, edit_book.get_name()).await
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use axum::async_trait;
     use mockall::{mock, predicate};
 
@@ -52,12 +57,14 @@ mod tests {
         dto::request::EditBook, repository::update::UpdateBookRepo, usecase::update::update_book,
     };
 
+    use crate::global::errors::CustomError;
+
     mock! {
         UpdateBookRepoImpl {}
 
         #[async_trait]
         impl UpdateBookRepo for UpdateBookRepoImpl {
-            async fn update_book(&self, id: i32, name: &str) -> Result<(), String>;
+            async fn update_book(&self, id: i32, name: &str) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -96,7 +103,7 @@ mod tests {
                 predicate::eq(no_id),
                 predicate::eq(target_book.get_name().to_owned()),
             )
-            .returning(|_, _| Err("존재하지 않는 id입니다.".to_string()));
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
 
         // Act
         let result = update_book(&mock_repo, no_id, &target_book).await;

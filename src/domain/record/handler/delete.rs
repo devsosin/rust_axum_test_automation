@@ -14,11 +14,8 @@ where
     T: DeleteRecordUsecase,
 {
     match usecase.delete_record(id).await {
-        Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": e})),
-        ),
+        Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
+        Err(err) => err.as_ref().into_response(),
     }
 }
 
@@ -32,8 +29,9 @@ mod tests {
     use serde_json::Value;
     use tower::ServiceExt;
 
-    use crate::domain::record::{
-        handler::delete::delete_record, usecase::delete::DeleteRecordUsecase,
+    use crate::{
+        domain::record::{handler::delete::delete_record, usecase::delete::DeleteRecordUsecase},
+        global::errors::CustomError,
     };
 
     mock! {
@@ -41,7 +39,7 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordUsecase for DeleteRecordUsecaseImpl {
-            async fn delete_record(&self, id: i64) -> Result<(), String>;
+            async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -124,7 +122,7 @@ mod tests {
         mock_usecase
             .expect_delete_record()
             .with(predicate::eq(id))
-            .returning(|i| Err("id not found".to_string()));
+            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
         let app = Router::new()
             .route(

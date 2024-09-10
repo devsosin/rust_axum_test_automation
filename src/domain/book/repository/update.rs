@@ -3,13 +3,15 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
+use crate::global::errors::CustomError;
+
 pub struct UpdateBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
 pub trait UpdateBookRepo: Send + Sync {
-    async fn update_book(&self, id: i32, name: &str) -> Result<(), String>;
+    async fn update_book(&self, id: i32, name: &str) -> Result<(), Arc<CustomError>>;
 }
 
 impl UpdateBookRepoImpl {
@@ -20,12 +22,12 @@ impl UpdateBookRepoImpl {
 
 #[async_trait]
 impl UpdateBookRepo for UpdateBookRepoImpl {
-    async fn update_book(&self, id: i32, name: &str) -> Result<(), String> {
+    async fn update_book(&self, id: i32, name: &str) -> Result<(), Arc<CustomError>> {
         update_book(&self.pool, id, name).await
     }
 }
 
-pub async fn update_book(pool: &PgPool, id: i32, name: &str) -> Result<(), String> {
+pub async fn update_book(pool: &PgPool, id: i32, name: &str) -> Result<(), Arc<CustomError>> {
     // WITH name duplicate
     let result = sqlx::query("UPDATE tb_book SET name = $2 WHERE id = $1 ")
         .bind(id)
@@ -33,13 +35,18 @@ pub async fn update_book(pool: &PgPool, id: i32, name: &str) -> Result<(), Strin
         .execute(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("Error(Update{}): {:?}", id, e);
-            tracing::error!("{}", &err_msg);
-            err_msg
+            let err_msg = format!("Error(Update {}): {:?}", id, e);
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
         })?;
 
     if result.rows_affected() == 0 {
-        return Err("target id Not Found".to_string());
+        return Err(Arc::new(CustomError::NotFound("Book".to_string())));
     };
 
     Ok(())
@@ -71,17 +78,17 @@ mod tests {
         let pool = create_connection_pool().await;
         let book = Book::new(None, "수정용 가계부".to_string(), 1);
 
-        let inserted_id = save_book(&pool, book).await.unwrap();
+        let inserted_id = save_book(&pool, book.clone()).await.unwrap();
         let target_name = "변경 가계부";
 
         // Act
         let response = update_book(&pool, inserted_id, target_name).await;
-        assert!(response.is_ok());
+        assert!(response.map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
         let row = get_book(&pool, inserted_id).await.unwrap();
 
-        assert_ne!(row.get_name(), "수정용 가계부");
+        assert_ne!(row.get_name(), book.get_name());
     }
 
     #[tokio::test]

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-use crate::domain::record::{dto::request::NewRecord, repository::save::SaveRecordRepo};
+use crate::{
+    domain::record::{dto::request::NewRecord, repository::save::SaveRecordRepo},
+    global::errors::CustomError,
+};
 
 pub(crate) struct CreateRecordUsecaseImpl<T>
 where
@@ -13,7 +16,7 @@ where
 
 #[async_trait]
 pub(crate) trait CreateRecordUsecase: Send + Sync {
-    async fn create_record(&self, new_record: &NewRecord) -> Result<i64, String>;
+    async fn create_record(&self, new_record: &NewRecord) -> Result<i64, Arc<CustomError>>;
 }
 
 impl<T> CreateRecordUsecaseImpl<T>
@@ -30,12 +33,12 @@ impl<T> CreateRecordUsecase for CreateRecordUsecaseImpl<T>
 where
     T: SaveRecordRepo,
 {
-    async fn create_record(&self, new_record: &NewRecord) -> Result<i64, String> {
+    async fn create_record(&self, new_record: &NewRecord) -> Result<i64, Arc<CustomError>> {
         create_record(&*self.repository, new_record).await
     }
 }
 
-async fn create_record<T>(repository: &T, new_record: &NewRecord) -> Result<i64, String>
+async fn create_record<T>(repository: &T, new_record: &NewRecord) -> Result<i64, Arc<CustomError>>
 where
     T: SaveRecordRepo,
 {
@@ -49,18 +52,20 @@ mod tests {
     use axum::async_trait;
     use chrono::NaiveDateTime;
     use mockall::{mock, predicate};
+    use std::sync::Arc;
 
     use crate::domain::record::{
         dto::request::NewRecord, entity::Record, repository::save::SaveRecordRepo,
         usecase::create::create_record,
     };
+    use crate::global::errors::CustomError;
 
     mock! {
         SaveRecordRepoImpl {}
 
         #[async_trait]
         impl SaveRecordRepo for SaveRecordRepoImpl {
-            async fn save_record(&self, record: Record, connect_ids: Option<Vec<i32>>) -> Result<i64, String>;
+            async fn save_record(&self, record: Record, connect_ids: Option<Vec<i32>>) -> Result<i64, Arc<CustomError>>;
         }
     }
 
@@ -111,7 +116,7 @@ mod tests {
         mock_repo
             .expect_save_record()
             .with(predicate::eq(new_record.to_entity()), predicate::eq(None))
-            .returning(|_, _| Err("sub category id not found".to_string()));
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Category".to_string()))));
 
         // Act
         let result = create_record(&mock_repo, &new_record).await;
@@ -141,7 +146,7 @@ mod tests {
                 predicate::eq(new_record.to_entity()),
                 predicate::eq(new_connections.clone()),
             )
-            .returning(|_, _| Err("asset id not found".to_string()));
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Asset".to_string()))));
 
         // Act
         let result = create_record(&mock_repo, &new_record).await;

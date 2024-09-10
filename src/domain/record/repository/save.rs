@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::{Error, PgPool};
 
-use crate::domain::record::entity::Record;
+use crate::{domain::record::entity::Record, global::errors::CustomError};
 
 pub(crate) struct SaveRecordRepoImpl {
     pool: Arc<PgPool>,
@@ -15,7 +15,7 @@ pub(crate) trait SaveRecordRepo: Send + Sync {
         &self,
         record: Record,
         connect_ids: Option<Vec<i32>>,
-    ) -> Result<i64, String>;
+    ) -> Result<i64, Arc<CustomError>>;
 }
 
 impl SaveRecordRepoImpl {
@@ -30,12 +30,15 @@ impl SaveRecordRepo for SaveRecordRepoImpl {
         &self,
         record: Record,
         connect_ids: Option<Vec<i32>>,
-    ) -> Result<i64, String> {
+    ) -> Result<i64, Arc<CustomError>> {
         save_record(&self.pool, record, connect_ids).await
     }
 }
 
-async fn validate_connect_ids(pool: &PgPool, connect_ids: &Option<Vec<i32>>) -> Result<(), Error> {
+async fn validate_connect_ids(
+    pool: &PgPool,
+    connect_ids: &Option<Vec<i32>>,
+) -> Result<(), CustomError> {
     if let Some(ids) = connect_ids {
         let invalid_count: i64 = sqlx::query_scalar(
             r#"
@@ -51,7 +54,7 @@ async fn validate_connect_ids(pool: &PgPool, connect_ids: &Option<Vec<i32>>) -> 
         .await?;
 
         if invalid_count > 0 {
-            return Err(Error::Protocol("Invalid Connect Ids".to_string()));
+            return Err(CustomError::ValidationError("Connect".to_string()));
         }
     }
 
@@ -62,13 +65,14 @@ pub(crate) async fn save_record(
     pool: &PgPool,
     record: Record,
     connect_ids: Option<Vec<i32>>,
-) -> Result<i64, String> {
+) -> Result<i64, Arc<CustomError>> {
     validate_connect_ids(pool, &connect_ids)
         .await
         .map_err(|e| {
-            let err_msg = format!("Save(Record): Validation Failed {:?}", e);
+            let err_msg = format!("Error(SaveRecord): {:?}", &e);
             tracing::error!("{}", err_msg);
-            err_msg
+
+            Arc::new(e)
         })?;
 
     let id = sqlx::query_scalar::<_, i64>(
@@ -103,7 +107,12 @@ pub(crate) async fn save_record(
     .map_err(|e| {
         let err_msg = format!("Save(Record): {:?}", e);
         tracing::error!("{}", err_msg);
-        err_msg
+        
+        let err = match e {
+            Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
     })?;
 
     Ok(id)
