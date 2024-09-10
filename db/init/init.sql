@@ -6,8 +6,8 @@ CREATE TABLE tb_image(
 
 CREATE TABLE tb_user(
     id SERIAL PRIMARY KEY,
-    user_email VARCHAR(128) NOT NULL,
-    user_pw VARCHAR(64) NOT NULL,
+    user_email VARCHAR(128) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
     nickname VARCHAR(12),
     login_type VARCHAR(8) NOT NULL,
     unique_id VARCHAR(64),
@@ -16,8 +16,8 @@ CREATE TABLE tb_user(
     profile_id INT,
     phone VARCHAR(16),
 
-    is_active BOOLEAN,
-    is_admin BOOLEAN,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_admin BOOLEAN DEFAULT FALSE,
 
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP,

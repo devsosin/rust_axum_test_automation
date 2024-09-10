@@ -36,7 +36,7 @@ impl IntoResponse for &CustomError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
             }
             CustomError::ValidationError(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Validation failed").into_response()
+                (StatusCode::BAD_REQUEST, "Validation failed").into_response()
             }
             CustomError::Unauthorized(_) => {
                 (StatusCode::UNAUTHORIZED, "Authorization failed").into_response()

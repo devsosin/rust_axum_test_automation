@@ -4,17 +4,18 @@ use axum::{
     routing::{delete, get, patch, post},
     Extension, Router,
 };
-use delete::delete_record;
-use sqlx::PgPool;
 
-use create::create_record;
-use read::{read_record, read_records};
-use update::update_record;
+use sqlx::PgPool;
 
 mod create;
 mod delete;
 mod read;
 mod update;
+
+use create::create_record;
+use delete::delete_record;
+use read::{read_record, read_records};
+use update::update_record;
 
 use super::{
     repository::{

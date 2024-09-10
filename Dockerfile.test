@@ -1,11 +1,33 @@
-# Dockerfile
+# Builder --------------------------------------------------------
 FROM rust:1.80 as builder
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
+# First, copy only the Cargo files to cache dependencies separately
+COPY Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to allow 'cargo build' to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build the dependencies
+RUN cargo build --release
+
 # Copy the project files into the container
 COPY . .
+
+# Rebuild the project with the actual source code
+RUN cargo build --release
+
+# Tester --------------------------------------------------------
+FROM rust:1.80 as tester
+
+WORKDIR /usr/src/app
+
+# Copy built artifacts from the builder stage
+COPY --from=builder /usr/src/app/target /usr/src/app/target
+COPY --from=builder /usr/src/app/Cargo.toml /usr/src/app/Cargo.lock ./
+COPY --from=builder /usr/src/app/src ./src
 
 # Run tests with cargo test
 CMD ["cargo", "test", "--no-fail-fast", "--", "--test-threads=1"]

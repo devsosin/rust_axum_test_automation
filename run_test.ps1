@@ -95,6 +95,7 @@ Write-Host "Deleted raw_test_results.log after processing."
 # Step 5: Clean up the environment by shutting down Docker Compose services
 Write-Host "Cleaning up the test environment..."
 docker-compose -f docker-compose.test.yml down
+Get-ChildItem -Path "$env:TEMP\*" -Force -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
 # Notify the user of test completion and log locations
 Write-Host "Tests completed. Failures section is saved in test_results_summary.log."

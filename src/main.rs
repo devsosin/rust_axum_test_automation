@@ -24,6 +24,7 @@ pub mod global {
 pub mod domain {
     pub mod book;
     pub mod record;
+    pub mod user;
 }
 
 use crate::domain::{
