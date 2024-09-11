@@ -102,9 +102,8 @@ async fn _update_user(
     if index == 0 {
         return Err(Arc::new(CustomError::NoFieldUpdate("User".to_string())));
     }
-    query.pop();
-    query.pop();
 
+    query.push_str("updated_at = NOW()");
     query.push_str(format!(" WHERE id = ${}", index + 1).as_str());
 
     let mut query_builder = sqlx::query(&query);
@@ -158,6 +157,8 @@ async fn _update_user(
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use crate::{
         config::database::create_connection_pool,
         domain::user::{
@@ -313,5 +314,38 @@ mod tests {
 
         // Assert
         assert!(result.is_ok())
+    }
+
+    #[tokio::test]
+    async fn check_updated_at_changed() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user = User::new(
+            "test1234up@test.test".to_string(),
+            "test_password".to_string(),
+            "nickname".to_string(),
+            "email".to_string(),
+        );
+
+        let new_id = save_user(&pool, user).await.unwrap();
+
+        let edit_user = UpdateUser::new(
+            FieldUpdate::NoChange,
+            FieldUpdate::NoChange,
+            FieldUpdate::Set("010-1234-5678".to_string()),
+            FieldUpdate::NoChange,
+        );
+
+        let last_time = Utc::now().naive_utc();
+
+        // Act
+        let result = _update_user(&pool, new_id, edit_user).await;
+        assert!(result.map_err(|e| println!("{:?}", e)).is_ok());
+
+        let edited_user = get_by_id(&pool, new_id).await.unwrap();
+
+        // Assert
+        assert!(last_time < edited_user.get_updated_at().unwrap())
     }
 }

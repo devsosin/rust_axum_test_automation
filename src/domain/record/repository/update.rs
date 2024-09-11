@@ -91,8 +91,7 @@ async fn update_record(
         return Err(Arc::new(CustomError::NoFieldUpdate("Record".to_string())));
     }
 
-    query.pop();
-    query.pop();
+    query.push_str("updated_at = NOW()");
     query.push_str(&format!(" WHERE id = ${}", index + 1));
 
     let mut query_builder = sqlx::query(&query);
@@ -151,7 +150,7 @@ async fn update_record(
 
 #[cfg(test)]
 mod tests {
-    use chrono::NaiveDateTime;
+    use chrono::{NaiveDateTime, Utc};
 
     use crate::{
         config::database::create_connection_pool,
@@ -312,6 +311,38 @@ mod tests {
 
         // Assert
         assert!(result.is_err())
+    }
+
+    #[tokio::test]
+    async fn check_updated_at_changed() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let record = Record::new(
+            1,
+            18, // 식비
+            16300,
+            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
+            None,
+        );
+
+        let new_id = save_record(&pool, record, None).await.unwrap();
+        let edit_record = UpdateRecord::new(
+            FieldUpdate::NoChange,
+            FieldUpdate::Set(15000),
+            FieldUpdate::SetNone,
+            FieldUpdate::NoChange,
+            FieldUpdate::NoChange,
+        );
+        let last_time = Utc::now().naive_utc();
+
+        // Act
+        let result = update_record(&pool, new_id, edit_record).await;
+        assert!(result.map_err(|e| println!("{:?}", e)).is_ok());
+
+        // Assert
+        let updated_user = get_by_id(&pool, new_id).await.unwrap();
+        assert!(last_time < updated_user.get_updated_at().unwrap())
     }
 
     #[tokio::test]
