@@ -68,6 +68,7 @@ impl User {
         self.profile_id = profile_id;
         self
     }
+
     pub(crate) fn build(self) -> Self {
         Self {
             id: self.id,
@@ -114,6 +115,12 @@ impl User {
     }
     pub fn get_profile_id(&self) -> &Option<i32> {
         &self.profile_id
+    }
+    pub fn get_is_active(&self) -> bool {
+        self.is_active
+    }
+    pub fn get_updated_at(&self) -> &Option<NaiveDateTime> {
+        &self.updated_at
     }
 
     pub fn to_info(&self) -> UserInfo {
