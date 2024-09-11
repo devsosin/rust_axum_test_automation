@@ -114,13 +114,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_get_books_failure() {
-        // 실패 케이스 ?
-        // 해당 role user_id가 없으면 빈 벡터 반환 -30 같은거
-        todo!()
-    }
-
-    #[tokio::test]
     async fn check_get_book_success() {
         // Arange
         let pool = create_connection_pool().await;

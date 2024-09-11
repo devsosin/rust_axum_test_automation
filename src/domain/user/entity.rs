@@ -1,6 +1,8 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
+use super::dto::response::UserInfo;
+
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, PartialEq, Clone)]
 pub(super) struct User {
     id: Option<i32>,
@@ -110,5 +112,16 @@ impl User {
     }
     pub fn get_profile_id(&self) -> &Option<i32> {
         &self.profile_id
+    }
+
+    pub fn to_info(&self) -> UserInfo {
+        UserInfo::new(
+            self.id.unwrap(),
+            self.user_email.to_string(),
+            self.nickname.to_string(),
+            self.login_type.parse().unwrap(),
+            self.phone.clone(),
+            self.profile_id.clone(),
+        )
     }
 }

@@ -90,6 +90,10 @@ mod tests {
             .expect_save_record()
             .with(predicate::eq(new_record.to_entity()), predicate::eq(None))
             .returning(|_, _| Ok(1));
+        mock_repo
+            .expect_validate_connect_ids()
+            .with(predicate::eq(None))
+            .returning(|_| Ok(()));
 
         // Act
         let result = create_record(&mock_repo, &new_record).await;
@@ -120,6 +124,10 @@ mod tests {
             .expect_save_record()
             .with(predicate::eq(new_record.to_entity()), predicate::eq(None))
             .returning(|_, _| Err(Arc::new(CustomError::NotFound("Category".to_string()))));
+        mock_repo
+            .expect_validate_connect_ids()
+            .with(predicate::eq(None))
+            .returning(|_| Ok(()));
 
         // Act
         let result = create_record(&mock_repo, &new_record).await;
@@ -150,6 +158,10 @@ mod tests {
                 predicate::eq(new_connections.clone()),
             )
             .returning(|_, _| Err(Arc::new(CustomError::NotFound("Asset".to_string()))));
+        mock_repo
+            .expect_validate_connect_ids()
+            .with(predicate::eq(Some(vec![1, 2])))
+            .returning(|_| Ok(()));
 
         // Act
         let result = create_record(&mock_repo, &new_record).await;

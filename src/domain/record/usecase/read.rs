@@ -133,17 +133,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_read_records_failure() {
-        todo!()
-
-        // Arrange
-
-        // Act
-
-        // Assert
-    }
-
-    #[tokio::test]
     async fn check_read_record_success() {
         // Arrange
         let id = 1;

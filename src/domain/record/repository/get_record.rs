@@ -108,16 +108,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_get_list_failure() {
-        // Arrange
-        todo!()
-
-        // Act
-
-        // Assert
-    }
-
-    #[tokio::test]
     async fn check_get_by_id_success() {
         // Arrange
         let pool = create_connection_pool().await;

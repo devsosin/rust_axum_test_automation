@@ -138,7 +138,7 @@ mod tests {
 
     use crate::{
         config::database::create_connection_pool,
-        domain::record::{entity::Record, repository::save::save_record},
+        domain::record::{entity::Record, repository::save::{save_record, validate_connect_ids}},
     };
 
     #[tokio::test]
@@ -269,25 +269,11 @@ mod tests {
     async fn check_no_connect() {
         // Arrange
         let pool = create_connection_pool().await;
-
-        let record = Record::new(
-            1,
-            18,
-            16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            None,
-        );
-
+        
         let new_connects = Some(vec![1, -32]);
 
         // Act
-        let result = save_record(&pool, record, new_connects.clone())
-            .await
-            .map_err(|e| {
-                println!("{:?}", e);
-                e
-            });
-        // assert -> is_err
+        let result = validate_connect_ids(&pool, &new_connects).await;
         assert!(result.is_err());
     }
 }
