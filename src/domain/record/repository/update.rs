@@ -4,8 +4,8 @@ use axum::async_trait;
 use sqlx::PgPool;
 
 use crate::{
-    domain::record::entity::{FieldUpdate, UpdateRecord},
-    global::errors::CustomError,
+    domain::record::entity::UpdateRecord,
+    global::{constants::FieldUpdate, errors::CustomError},
 };
 
 pub(crate) struct UpdateRecordRepoImpl {
@@ -48,7 +48,7 @@ async fn update_record(
     id: i64,
     edit_record: UpdateRecord,
 ) -> Result<(), Arc<CustomError>> {
-    // check_validation
+    // check_validation -> usecase
 
     let mut query: String = "UPDATE tb_record SET ".to_string();
     let mut index = 0;
@@ -93,8 +93,7 @@ async fn update_record(
 
     query.pop();
     query.pop();
-    index += 1;
-    query.push_str(&format!(" WHERE id = ${}", index));
+    query.push_str(&format!(" WHERE id = ${}", index + 1));
 
     let mut query_builder = sqlx::query(&query);
 
@@ -157,9 +156,10 @@ mod tests {
     use crate::{
         config::database::create_connection_pool,
         domain::record::{
-            entity::{FieldUpdate, Record, UpdateRecord},
+            entity::{Record, UpdateRecord},
             repository::{get_record::get_by_id, save::save_record, update::update_record},
         },
+        global::constants::FieldUpdate,
     };
 
     #[tokio::test]

@@ -1,6 +1,8 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
+use crate::global::constants::FieldUpdate;
+
 use super::dto::response::UserInfo;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, PartialEq, Clone)]
@@ -123,5 +125,42 @@ impl User {
             self.phone.clone(),
             self.profile_id.clone(),
         )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) struct UpdateUser {
+    profile_id: FieldUpdate<i32>,
+    password: FieldUpdate<String>,
+    phone: FieldUpdate<String>,
+    nickname: FieldUpdate<String>,
+}
+
+impl UpdateUser {
+    pub(crate) fn new(
+        profile_id: FieldUpdate<i32>,
+        password: FieldUpdate<String>,
+        phone: FieldUpdate<String>,
+        nickname: FieldUpdate<String>,
+    ) -> Self {
+        Self {
+            profile_id,
+            password,
+            phone,
+            nickname,
+        }
+    }
+
+    pub(crate) fn get_profile_id(&self) -> &FieldUpdate<i32> {
+        &self.profile_id
+    }
+    pub(crate) fn get_password(&self) -> &FieldUpdate<String> {
+        &self.password
+    }
+    pub(crate) fn get_phone(&self) -> &FieldUpdate<String> {
+        &self.phone
+    }
+    pub(crate) fn get_nickname(&self) -> &FieldUpdate<String> {
+        &self.nickname
     }
 }

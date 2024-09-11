@@ -1,6 +1,8 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
+use crate::global::constants::FieldUpdate;
+
 #[derive(Deserialize, Debug, sqlx::FromRow, Serialize, Clone, PartialEq)]
 pub(crate) struct Record {
     id: Option<i64>,
@@ -96,13 +98,6 @@ impl Record {
     pub(crate) fn get_asset_id(&self) -> &Option<i32> {
         &self.asset_id
     }
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub(crate) enum FieldUpdate<T> {
-    Set(T),
-    SetNone,
-    NoChange,
 }
 
 #[derive(Clone, PartialEq, Debug)]

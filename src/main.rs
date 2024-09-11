@@ -18,6 +18,7 @@ pub mod config {
 
 pub mod global {
     pub mod utils {}
+    pub mod constants;
     pub mod errors;
 }
 
@@ -29,6 +30,7 @@ pub mod domain {
 
 use crate::domain::{
     book::route::get_router as book_router, record::route::get_router as record_router,
+    user::route::get_router as user_router,
 };
 
 #[tokio::main]
@@ -49,11 +51,13 @@ async fn main() {
 
     let book_router = book_router(pool.clone());
     let record_router = record_router(pool.clone());
+    let user_router = user_router(pool.clone());
 
     let app = Router::new()
         .route("/", axum::routing::get(|| async { "{\"status\": \"OK\"}" }))
         .nest("/api/v1/book", book_router)
-        .nest("/api/v1/record", record_router);
+        .nest("/api/v1/record", record_router)
+        .nest("/api/v1/user", user_router);
 
     let app =
         app.fallback(|| async { (StatusCode::NOT_FOUND, "존재하지 않는 API입니다.") });

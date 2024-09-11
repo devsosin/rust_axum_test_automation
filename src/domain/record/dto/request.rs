@@ -1,7 +1,10 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::record::entity::{FieldUpdate, Record, UpdateRecord};
+use crate::{
+    domain::record::entity::{Record, UpdateRecord},
+    global::constants::FieldUpdate,
+};
 
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq)]
 pub(crate) struct NewRecord {

@@ -2,7 +2,10 @@ use std::{str::FromStr, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::user::entity::User, global::errors::CustomError};
+use crate::{
+    domain::user::entity::{UpdateUser, User},
+    global::{constants::FieldUpdate, errors::CustomError},
+};
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -108,5 +111,73 @@ impl NewUser {
     }
     pub(crate) fn get_phone(&self) -> &Option<String> {
         &self.phone
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub(crate) struct EditPassword {
+    new: String,
+    original: String, // password confirm
+}
+
+impl EditPassword {
+    pub(crate) fn new(new: String, original: String) -> Self {
+        Self { new, original }
+    }
+
+    pub(crate) fn get_password(&self) -> &str {
+        &self.original
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub(crate) struct EditUser {
+    profile_id: Option<i32>,
+    password: Option<EditPassword>,
+    phone: Option<String>,
+    nickname: Option<String>,
+}
+
+impl EditUser {
+    pub(crate) fn new(
+        profile_id: Option<i32>,
+        password: Option<EditPassword>,
+        phone: Option<String>,
+        nickname: Option<String>,
+    ) -> Self {
+        Self {
+            profile_id,
+            password,
+            phone,
+            nickname,
+        }
+    }
+    pub(crate) fn get_password(&self) -> &Option<EditPassword> {
+        &self.password
+    }
+    pub(crate) fn get_phone(&self) -> &Option<String> {
+        &self.phone
+    }
+
+    pub(crate) fn to_update(self) -> UpdateUser {
+        let profile_id = match self.profile_id {
+            // 프로필 내리기 -> 0이면
+            Some(v) if v == 0 => FieldUpdate::SetNone,
+            Some(v) => FieldUpdate::Set(v),
+            None => FieldUpdate::NoChange,
+        };
+        let password: FieldUpdate<String> = match self.password {
+            Some(v) => FieldUpdate::Set(v.new),
+            None => FieldUpdate::NoChange,
+        };
+        let phone = match self.phone {
+            Some(v) => FieldUpdate::Set(v),
+            None => FieldUpdate::NoChange,
+        };
+        let nickname = match self.nickname {
+            Some(v) => FieldUpdate::Set(v),
+            None => FieldUpdate::NoChange,
+        };
+        UpdateUser::new(profile_id, password, phone, nickname)
     }
 }
