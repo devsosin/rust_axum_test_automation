@@ -44,6 +44,8 @@ where
 {
     let record = new_record.to_entity();
     let connect_ids = new_record.get_connect_ids();
+
+    repository.validate_connect_ids(&connect_ids).await?;
     repository.save_record(record, connect_ids).await
 }
 
@@ -66,6 +68,7 @@ mod tests {
         #[async_trait]
         impl SaveRecordRepo for SaveRecordRepoImpl {
             async fn save_record(&self, record: Record, connect_ids: Option<Vec<i32>>) -> Result<i64, Arc<CustomError>>;
+            async fn validate_connect_ids(&self, connect_ids: &Option<Vec<i32>>) -> Result<(), Arc<CustomError>>;
         }
     }
 

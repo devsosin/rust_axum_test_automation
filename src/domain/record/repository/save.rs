@@ -16,6 +16,11 @@ pub(crate) trait SaveRecordRepo: Send + Sync {
         record: Record,
         connect_ids: Option<Vec<i32>>,
     ) -> Result<i64, Arc<CustomError>>;
+
+    async fn validate_connect_ids(
+        &self, 
+        connect_ids: &Option<Vec<i32>>,
+    ) -> Result<(), Arc<CustomError>>;
 }
 
 impl SaveRecordRepoImpl {
@@ -33,12 +38,20 @@ impl SaveRecordRepo for SaveRecordRepoImpl {
     ) -> Result<i64, Arc<CustomError>> {
         save_record(&self.pool, record, connect_ids).await
     }
+
+    async fn validate_connect_ids(
+        &self, 
+        connect_ids: &Option<Vec<i32>>,
+    ) -> Result<(), Arc<CustomError>> {
+        validate_connect_ids(&self.pool, &connect_ids).await
+    }
+    
 }
 
-async fn validate_connect_ids(
+pub(crate) async fn validate_connect_ids(
     pool: &PgPool,
     connect_ids: &Option<Vec<i32>>,
-) -> Result<(), CustomError> {
+) -> Result<(), Arc<CustomError>> {
     if let Some(ids) = connect_ids {
         let invalid_count: i64 = sqlx::query_scalar(
             r#"
@@ -51,10 +64,20 @@ async fn validate_connect_ids(
         )
         .bind(ids)
         .fetch_one(pool)
-        .await?;
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Error(SaveRecord-validation): {:?}", &e); 
+            tracing::error!("{}", err_msg);
+
+            let err = match e {
+                Error::Database(_) => CustomError::DatabaseError(e),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
+        })?;
 
         if invalid_count > 0 {
-            return Err(CustomError::ValidationError("Connect".to_string()));
+            return Err(Arc::new(CustomError::ValidationError("Connect".to_string())));
         }
     }
 
@@ -66,15 +89,6 @@ pub(crate) async fn save_record(
     record: Record,
     connect_ids: Option<Vec<i32>>,
 ) -> Result<i64, Arc<CustomError>> {
-    validate_connect_ids(pool, &connect_ids)
-        .await
-        .map_err(|e| {
-            let err_msg = format!("Error(SaveRecord): {:?}", &e);
-            tracing::error!("{}", err_msg);
-
-            Arc::new(e)
-        })?;
-
     let id = sqlx::query_scalar::<_, i64>(
         r#"
         -- tb_record에 삽입
