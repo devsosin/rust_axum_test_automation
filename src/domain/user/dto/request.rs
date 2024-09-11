@@ -102,4 +102,11 @@ impl NewUser {
         .access_token(self.access_token.clone())
         .build()
     }
+
+    pub(crate) fn get_email(&self) -> &str {
+        &self.user_email
+    }
+    pub(crate) fn get_phone(&self) -> &Option<String> {
+        &self.phone
+    }
 }

@@ -6,8 +6,9 @@ use serde_json::json;
 
 use crate::{
     domain::user::{
-        dto::request::NewUser, usecase::create::CreateUserUsecase,
-        util::validation_password_strength,
+        dto::request::NewUser,
+        usecase::create::CreateUserUsecase,
+        util::{validation_email, validation_password_strength, validation_phone},
     },
     global::errors::CustomError,
 };
@@ -19,12 +20,22 @@ pub(crate) async fn create_user<T>(
 where
     T: CreateUserUsecase,
 {
+    if !validation_email(new_user.get_email()) {
+        return CustomError::ValidationError("Email validation".to_string()).into_response();
+    }
+
     if !new_user.is_password_matching() {
         return CustomError::ValidationError("Password maching".to_string()).into_response();
     }
 
     if let Err(_) = validation_password_strength(new_user.password()) {
         return CustomError::ValidationError("Password validation".to_string()).into_response();
+    }
+
+    if let Some(phone) = new_user.get_phone() {
+        if !validation_phone(phone) {
+            return CustomError::ValidationError("Phone validation".to_string()).into_response();
+        }
     }
 
     match usecase.create_user(new_user).await {
@@ -61,47 +72,6 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn check_create_user_status() {
-        // Arrange
-        let new_user = NewUser::new(
-            "test1234@test.test".to_string(),
-            "Str0nGPassW0rd!@".to_string(),
-            "Str0nGPassW0rd!@".to_string(),
-            "nickname".to_string(),
-            LoginType::Email,
-            None,
-            None,
-            None,
-        );
-
-        let mut mock_usecase = MockCreateUserUsecaseImpl::new();
-        mock_usecase
-            .expect_create_user()
-            .with(predicate::eq(new_user.clone()))
-            .returning(|_| Ok(1));
-
-        let app = Router::new()
-            .route(
-                "/api/v1/user",
-                post(create_user::<MockCreateUserUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("POST")
-            .uri("/api/v1/user")
-            .header("content-type", "application/json")
-            .body(to_string(&new_user).unwrap())
-            .unwrap();
-
-        // Act
-        let response = app.oneshot(req).await.unwrap();
-
-        // Assert
-        assert_eq!(response.status(), 201)
-    }
-
     fn _create_app(new_user: &NewUser, ret: Result<i32, Arc<CustomError>>) -> Router {
         let mut mock_usecase = MockCreateUserUsecaseImpl::new();
         mock_usecase
@@ -124,6 +94,30 @@ mod tests {
             .header("content-type", "application/json")
             .body(to_string(&new_user).unwrap())
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn check_create_user_status() {
+        // Arrange
+        let new_user = NewUser::new(
+            "test1234@test.test".to_string(),
+            "Str0nGPassW0rd!@".to_string(),
+            "Str0nGPassW0rd!@".to_string(),
+            "nickname".to_string(),
+            LoginType::Email,
+            None,
+            None,
+            None,
+        );
+
+        let app = _create_app(&new_user, Ok(1));
+        let req = _create_req(&new_user);
+
+        // Act
+        let response = app.oneshot(req).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), 201)
     }
 
     #[tokio::test]
@@ -212,30 +206,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_phone_check() {
+    async fn check_phone_validation() {
         // Arrange
         let new_user = NewUser::new(
-            "email@notvalid".to_string(),
+            "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
-            "pwnotmatch".to_string(),
+            "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
             LoginType::Email,
-            Some("010-11-49483".to_string()),
+            Some("010-11-494".to_string()),
             None,
             None,
         );
 
+        let app = _create_app(&new_user, Ok(1));
+        let req = _create_req(&new_user);
+
         // Act
+        let response = app.oneshot(req).await.unwrap();
 
         // Assert
-        assert_eq!(1, 400)
+        assert_eq!(response.status(), 400)
     }
 
     #[tokio::test]
     async fn check_password_match() {
         // Arrange
         let new_user = NewUser::new(
-            "email@notvalid".to_string(),
+            "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "pwnotmatch".to_string(),
             "nickname".to_string(),

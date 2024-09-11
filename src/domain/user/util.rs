@@ -46,8 +46,29 @@ pub(crate) fn validation_password_strength(
     Ok(())
 }
 
+pub(crate) fn validation_email(email: &str) -> bool {
+    let email_regex = Regex::new(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").unwrap();
+    email_regex.is_match(email)
+}
+
+pub(crate) fn validation_phone(phone: &str) -> bool {
+    let phone_regex = Regex::new(r#"^[\d\s\-\(\)]+$"#).unwrap();
+    let sanitized_input: String = phone.chars().filter(|c| c.is_digit(10)).collect();
+    phone_regex.is_match(phone) && sanitized_input.len() >= 10
+}
+
 pub(crate) fn hash_password(password: &[u8]) -> Result<String, argon2::password_hash::Error> {
     let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2.hash_password(password, &salt)?.to_string();
+    Ok(password_hash)
+}
+
+pub(crate) fn hash_password_fixed(
+    password: &[u8],
+    salt_string: &str,
+) -> Result<String, argon2::password_hash::Error> {
+    let salt = SaltString::from_b64(salt_string).unwrap();
     let argon2 = Argon2::default();
     let password_hash = argon2.hash_password(password, &salt)?.to_string();
     Ok(password_hash)

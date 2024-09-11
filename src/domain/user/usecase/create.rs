@@ -1,10 +1,12 @@
 use axum::async_trait;
 use std::sync::Arc;
 
-use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
-
 use crate::{
-    domain::user::{dto::request::NewUser, repository::save::SaveUserRepo, util::hash_password},
+    domain::user::{
+        dto::request::NewUser,
+        repository::save::SaveUserRepo,
+        util::{hash_password, hash_password_fixed},
+    },
     global::errors::CustomError,
 };
 
@@ -39,19 +41,20 @@ where
     }
 }
 
-fn _hash_password_fixed(password: &[u8]) -> Result<String, argon2::password_hash::Error> {
-    // 고정된 솔트를 사용하여 일관된 해싱 결과를 얻기 위해
-    let salt = SaltString::from_b64("fixedsaltfortest").unwrap(); // 고정된 22자 솔트
-    let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(password, &salt)?.to_string();
-    Ok(password_hash)
+#[cfg(not(test))]
+fn _hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
+    hash_password(password.as_bytes())
 }
 
+#[cfg(test)]
+fn _hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
+    hash_password_fixed(password.as_bytes(), "fixedsaltfortest") // valid base64 string it's crazy
+}
 async fn _create_user<T>(repository: &T, mut new_user: NewUser) -> Result<i32, Arc<CustomError>>
 where
     T: SaveUserRepo,
 {
-    let hashed_password = hash_password(new_user.password().as_bytes()).map_err(|e| {
+    let hashed_password = _hash_password(new_user.password()).map_err(|e| {
         let err_msg = format!("Error(CreateUser-hashing): {:?}", &e);
         tracing::error!("{}", err_msg);
 
@@ -81,7 +84,7 @@ mod tests {
         global::errors::CustomError,
     };
 
-    use super::{_create_user, _hash_password_fixed};
+    use super::{_create_user, _hash_password};
 
     mock! {
         SaveUserRepoImpl {}
@@ -107,7 +110,7 @@ mod tests {
         );
         let user = User::new(
             "test1234@test.test".to_string(),
-            _hash_password_fixed("test_password".as_bytes()).unwrap(),
+            _hash_password("test_password").unwrap(),
             "nickname".to_string(),
             "email".to_string(),
         );
