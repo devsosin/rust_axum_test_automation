@@ -11,7 +11,7 @@ pub(crate) struct UpdateRecordUsecaseImpl<T>
 where
     T: UpdateRecordRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -24,7 +24,7 @@ impl<T> UpdateRecordUsecaseImpl<T>
 where
     T: UpdateRecordRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -39,7 +39,7 @@ where
         id: i64,
         edit_record: EditRecord,
     ) -> Result<(), Arc<CustomError>> {
-        update_record(&*self.repository, id, edit_record).await
+        update_record(&self.repository, id, edit_record).await
     }
 }
 

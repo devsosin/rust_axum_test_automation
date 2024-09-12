@@ -6,7 +6,7 @@ use crate::{
     domain::user::{
         dto::request::EditUser,
         repository::update::UpdateUserRepo,
-        util::{hash_password, hash_password_fixed},
+        utils::password_hash::{hash_password, hash_password_fixed},
     },
     global::errors::CustomError,
 };
@@ -15,7 +15,7 @@ pub(crate) struct UpdateUserUsecaseImpl<T>
 where
     T: UpdateUserRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -27,7 +27,7 @@ impl<T> UpdateUserUsecaseImpl<T>
 where
     T: UpdateUserRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -38,7 +38,7 @@ where
     T: UpdateUserRepo,
 {
     async fn update_user(&self, id: i32, edit_user: EditUser) -> Result<(), Arc<CustomError>> {
-        _update_user(&*self.repository, id, edit_user).await
+        _update_user(&self.repository, id, edit_user).await
     }
 }
 

@@ -5,7 +5,7 @@ use crate::{
     domain::user::{
         dto::request::NewUser,
         repository::save::SaveUserRepo,
-        util::{hash_password, hash_password_fixed},
+        utils::password_hash::{hash_password, hash_password_fixed},
     },
     global::errors::CustomError,
 };
@@ -14,7 +14,7 @@ pub(crate) struct CreateUserUsecaseImpl<T>
 where
     T: SaveUserRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -26,7 +26,7 @@ impl<T> CreateUserUsecaseImpl<T>
 where
     T: SaveUserRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -37,7 +37,7 @@ where
     T: SaveUserRepo,
 {
     async fn create_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>> {
-        _create_user(&*self.repository, new_user).await
+        _create_user(&self.repository, new_user).await
     }
 }
 
@@ -50,6 +50,7 @@ fn _hash_password(password: &str) -> Result<String, argon2::password_hash::Error
 fn _hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
     hash_password_fixed(password.as_bytes(), "fixedsaltfortest") // valid base64 string it's crazy
 }
+
 async fn _create_user<T>(repository: &T, mut new_user: NewUser) -> Result<i32, Arc<CustomError>>
 where
     T: SaveUserRepo,
@@ -99,12 +100,12 @@ mod tests {
     async fn check_create_user_success() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "test_password".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test1234@test.test".to_string(),
             None,
             None,
         );
@@ -112,6 +113,7 @@ mod tests {
             "test1234@test.test".to_string(),
             _hash_password("test_password").unwrap(),
             "nickname".to_string(),
+            "test1234@test.test".to_string(),
             "email".to_string(),
         );
 

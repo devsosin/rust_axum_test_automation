@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub struct CreateBookUsecaseImpl<T: SaveBookRepo> {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -20,7 +20,7 @@ impl<T> CreateBookUsecaseImpl<T>
 where
     T: SaveBookRepo,
 {
-    pub fn new(repository: Arc<T>) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -31,7 +31,7 @@ where
     T: SaveBookRepo,
 {
     async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>> {
-        create_book(&*self.repository, new_book).await
+        create_book(&self.repository, new_book).await
     }
 }
 
@@ -91,7 +91,7 @@ mod tests {
             .with(predicate::eq(new_book.to_entity()))
             .returning(|_| Ok(1)); // 성공 시 id 1반환
 
-        let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
+        let usecase = CreateBookUsecaseImpl::new(mock_repo);
 
         // Act
         let result = usecase.create_book(&new_book).await;
@@ -120,7 +120,7 @@ mod tests {
                 ))))
             }); // repo단위 에러 반환
 
-        let usecase = CreateBookUsecaseImpl::new(Arc::new(mock_repo));
+        let usecase = CreateBookUsecaseImpl::new(mock_repo);
 
         // Act
         let result = usecase.create_book(&new_book).await;

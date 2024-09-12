@@ -8,7 +8,7 @@ pub struct DeleteBookUsecaseImpl<T>
 where
     T: DeleteBookRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -20,7 +20,7 @@ impl<T> DeleteBookUsecaseImpl<T>
 where
     T: DeleteBookRepo,
 {
-    pub fn new(repository: Arc<T>) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -31,7 +31,7 @@ where
     T: DeleteBookRepo,
 {
     async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>> {
-        todo!()
+        delete_book(&self.repository, id).await
     }
 }
 

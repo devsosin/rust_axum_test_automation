@@ -8,15 +8,16 @@ use super::dto::response::UserInfo;
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, PartialEq, Clone)]
 pub(super) struct User {
     id: Option<i32>,
-    user_email: String,
-    password: String,
-    nickname: String,
     login_type: String,
-    phone: Option<String>,
-    unique_id: Option<String>,
+    username: String,
+    password: String,
     access_token: Option<String>,
 
+    nickname: String,
+    email: String,
     profile_id: Option<i32>,
+    phone: Option<String>,
+
     is_active: bool,
     is_admin: bool,
 
@@ -26,23 +27,27 @@ pub(super) struct User {
 
 impl User {
     pub(super) fn new(
-        user_email: String,
+        username: String,
         password: String,
         nickname: String,
+        email: String,
         login_type: String,
     ) -> Self {
         Self {
             id: None,
-            user_email,
-            password,
-            nickname,
             login_type,
-            phone: None,
-            unique_id: None,
+            username,
+            password,
             access_token: None,
+
+            nickname,
+            email,
             profile_id: None,
+            phone: None,
+
             is_active: true,
             is_admin: false,
+
             created_at: None,
             updated_at: None,
         }
@@ -54,10 +59,6 @@ impl User {
     }
     pub(crate) fn phone(mut self, phone: Option<String>) -> Self {
         self.phone = phone;
-        self
-    }
-    pub(crate) fn unique_id(mut self, unique_id: Option<String>) -> Self {
-        self.unique_id = unique_id;
         self
     }
     pub(crate) fn access_token(mut self, access_token: Option<String>) -> Self {
@@ -72,15 +73,16 @@ impl User {
     pub(crate) fn build(self) -> Self {
         Self {
             id: self.id,
-            user_email: self.user_email,
-            password: self.password,
-            nickname: self.nickname,
             login_type: self.login_type,
-            phone: self.phone,
-            unique_id: self.unique_id,
+            username: self.username,
+            password: self.password,
             access_token: self.access_token,
 
+            nickname: self.nickname,
+            email: self.email,
             profile_id: self.profile_id,
+            phone: self.phone,
+
             is_active: self.is_active,
             is_admin: self.is_admin,
 
@@ -92,8 +94,8 @@ impl User {
     pub fn get_id(&self) -> &Option<i32> {
         &self.id
     }
-    pub fn get_user_email(&self) -> &str {
-        &self.user_email
+    pub fn get_username(&self) -> &str {
+        &self.username
     }
     pub(crate) fn get_password(&self) -> &str {
         &self.password
@@ -107,8 +109,8 @@ impl User {
     pub fn get_phone(&self) -> &Option<String> {
         &self.phone
     }
-    pub fn get_unique_id(&self) -> &Option<String> {
-        &self.unique_id
+    pub fn get_email(&self) -> &str {
+        &self.email
     }
     pub fn get_access_token(&self) -> &Option<String> {
         &self.access_token
@@ -126,7 +128,8 @@ impl User {
     pub fn to_info(&self) -> UserInfo {
         UserInfo::new(
             self.id.unwrap(),
-            self.user_email.to_string(),
+            self.username.to_string(),
+            self.email.to_string(),
             self.nickname.to_string(),
             self.login_type.parse().unwrap(),
             self.phone.clone(),

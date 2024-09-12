@@ -28,9 +28,9 @@ use super::{
     },
 };
 
-pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
-    let repository = SaveRecordRepoImpl::new(pool.clone());
-    let usecase = CreateRecordUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
+    let repository = SaveRecordRepoImpl::new(&pool);
+    let usecase = CreateRecordUsecaseImpl::new(repository);
 
     Router::new()
         .route(
@@ -40,9 +40,9 @@ pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
-    let repository = GetRecordRepoImpl::new(pool.clone());
-    let usecase = ReadRecordUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
+    let repository = GetRecordRepoImpl::new(&pool);
+    let usecase = ReadRecordUsecaseImpl::new(repository);
 
     Router::new()
         .route(
@@ -56,9 +56,9 @@ pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
-    let repository = UpdateRecordRepoImpl::new(pool.clone());
-    let usecase = UpdateRecordUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
+    let repository = UpdateRecordRepoImpl::new(&pool);
+    let usecase = UpdateRecordUsecaseImpl::new(repository);
 
     Router::new()
         .route(
@@ -68,9 +68,9 @@ pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn delete_router(pool: Arc<PgPool>) -> Router {
-    let repository = DeleteRecordRepoImpl::new(pool.clone());
-    let usecase = DeleteRecordUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn delete_router(pool: &Arc<PgPool>) -> Router {
+    let repository = DeleteRecordRepoImpl::new(&pool);
+    let usecase = DeleteRecordUsecaseImpl::new(repository);
 
     Router::new()
         .route(

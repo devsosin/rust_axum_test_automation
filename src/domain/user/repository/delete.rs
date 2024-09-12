@@ -15,8 +15,8 @@ pub(crate) trait DeleteUserRepo: Send + Sync {
 }
 
 impl DeleteUserRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+        Self { pool: pool.clone() }
     }
 }
 
@@ -28,20 +28,21 @@ impl DeleteUserRepo for DeleteUserRepoImpl {
 }
 
 async fn _delete_user(pool: &PgPool, id: i32) -> Result<(), Arc<CustomError>> {
-    let result = sqlx::query("UPDATE tb_user SET is_active = FALSE WHERE id = $1")
-        .bind(id)
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            let err_msg = format!("Error(DeleteUser {}): {:?}", id, &e);
-            tracing::error!("{}", err_msg);
+    let result =
+        sqlx::query("UPDATE tb_user SET is_active = FALSE, updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                let err_msg = format!("Error(DeleteUser {}): {:?}", id, &e);
+                tracing::error!("{}", err_msg);
 
-            let err = match e {
-                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-                _ => CustomError::Unexpected(e.into()),
-            };
-            Arc::new(err)
-        })?;
+                let err = match e {
+                    sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                    _ => CustomError::Unexpected(e.into()),
+                };
+                Arc::new(err)
+            })?;
 
     if result.rows_affected() == 0 {
         return Err(Arc::new(CustomError::NotFound("User".to_string())));
@@ -80,6 +81,7 @@ mod tests {
             "deltest1234@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "deltest1234@test.test".to_string(),
             "email".to_string(),
         );
 

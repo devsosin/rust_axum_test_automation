@@ -11,7 +11,7 @@ pub(crate) struct CreateRecordUsecaseImpl<T>
 where
     T: SaveRecordRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl<T> CreateRecordUsecaseImpl<T>
 where
     T: SaveRecordRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -34,7 +34,7 @@ where
     T: SaveRecordRepo,
 {
     async fn create_record(&self, new_record: &NewRecord) -> Result<i64, Arc<CustomError>> {
-        create_record(&*self.repository, new_record).await
+        create_record(&self.repository, new_record).await
     }
 }
 

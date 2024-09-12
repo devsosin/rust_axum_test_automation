@@ -6,7 +6,8 @@ use serde_json::json;
 
 use crate::{
     domain::user::{
-        dto::request::EditUser, usecase::update::UpdateUserUsecase, util::validation_phone,
+        dto::request::EditUser, usecase::update::UpdateUserUsecase,
+        utils::validator::validation_phone,
     },
     global::errors::CustomError,
 };

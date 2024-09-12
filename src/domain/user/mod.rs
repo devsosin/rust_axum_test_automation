@@ -3,6 +3,6 @@ mod entity;
 mod handler;
 mod repository;
 mod usecase;
-mod util;
+pub(crate) mod utils;
 
 pub mod route;

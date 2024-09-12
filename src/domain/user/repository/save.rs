@@ -15,8 +15,8 @@ pub(crate) trait SaveUserRepo: Send + Sync {
 }
 
 impl SaveUserRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+        Self { pool: pool.clone() }
     }
 }
 
@@ -29,19 +29,19 @@ impl SaveUserRepo for SaveUserRepoImpl {
 
 pub(crate) async fn save_user(pool: &PgPool, user: User) -> Result<i32, Arc<CustomError>> {
     let result = sqlx::query(
-        "INSERT INTO tb_user (user_email, password, nickname, phone, 
-                                        login_type, unique_id, access_token) 
+        "INSERT INTO tb_user (username, password, nickname, phone, 
+                                        login_type, email, access_token) 
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (user_email) DO NOTHING
+            ON CONFLICT (username) DO NOTHING
             RETURNING id;
     ",
     )
-    .bind(user.get_user_email())
+    .bind(user.get_username())
     .bind(user.get_password())
     .bind(user.get_nickname())
     .bind(user.get_phone())
     .bind(user.get_login_type().to_string())
-    .bind(user.get_unique_id())
+    .bind(user.get_email())
     .bind(user.get_access_token())
     .fetch_one(pool)
     .await
@@ -86,6 +86,7 @@ mod tests {
             "test1234@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "test1234@test.test".to_string(),
             "email".to_string(),
         );
 
@@ -110,17 +111,19 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
         let user1 = User::new(
-            "test@test.test".to_string(),
+            "test_dupl@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "test@test.test".to_string(),
             "email".to_string(),
         );
         save_user(&pool, user1).await.unwrap();
 
         let user2 = User::new(
-            "test@test.test".to_string(),
+            "test_dupl@test.test".to_string(),
             "test_password".to_string(),
             "duplicate_user".to_string(),
+            "test@test.test".to_string(),
             "email".to_string(),
         );
 

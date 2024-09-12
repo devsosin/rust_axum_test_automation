@@ -8,7 +8,7 @@ pub(crate) struct DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -20,7 +20,7 @@ impl<T> DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -31,7 +31,7 @@ where
     T: DeleteRecordRepo,
 {
     async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>> {
-        delete_record(&*self.repository, id).await
+        delete_record(&self.repository, id).await
     }
 }
 

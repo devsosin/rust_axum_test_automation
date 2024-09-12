@@ -3,17 +3,20 @@ use std::sync::Arc;
 
 // Axum
 use axum::Router;
+use config::jwt::get_config;
 use hyper::StatusCode;
 
 // Env
 use dotenv::dotenv;
 
+use middleware::auth::verify;
 // Logging
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // User Defined Modules
 pub mod config {
     pub mod database;
+    pub mod jwt;
 }
 
 pub mod global {
@@ -28,9 +31,16 @@ pub mod domain {
     pub mod user;
 }
 
+pub mod middleware {
+    pub mod auth;
+}
+
 use crate::domain::{
-    book::route::get_router as book_router, record::route::get_router as record_router,
-    user::route::get_router as user_router,
+    book::route::get_router as book_router,
+    record::route::get_router as record_router,
+    user::route::{
+        get_private_router as user_private_router, get_public_router as user_public_router,
+    },
 };
 
 #[tokio::main]
@@ -48,16 +58,27 @@ async fn main() {
 
     let pool = config::database::create_connection_pool().await;
     let pool = Arc::new(pool);
+    let auth_config = Arc::new(get_config());
 
-    let book_router = book_router(pool.clone());
-    let record_router = record_router(pool.clone());
-    let user_router = user_router(pool.clone());
+    // public router
+    let user_public_router = user_public_router(&pool, &auth_config);
+    let public_router = Router::new().nest("/api/v1/user", user_public_router);
+
+    // private router
+    let book_router = book_router(&pool);
+    let record_router = record_router(&pool);
+    let user_private_router = user_private_router(&pool);
+
+    let private_router = Router::new()
+        .nest("/api/v1/book", book_router)
+        .nest("/api/v1/record", record_router)
+        .nest("/api/v1/user", user_private_router)
+        .layer(axum::middleware::from_fn_with_state(auth_config, verify));
 
     let app = Router::new()
         .route("/", axum::routing::get(|| async { "{\"status\": \"OK\"}" }))
-        .nest("/api/v1/book", book_router)
-        .nest("/api/v1/record", record_router)
-        .nest("/api/v1/user", user_router);
+        .merge(public_router)
+        .merge(private_router);
 
     let app =
         app.fallback(|| async { (StatusCode::NOT_FOUND, "존재하지 않는 API입니다.") });

@@ -11,7 +11,7 @@ pub(crate) struct ReadBookUsecaseImpl<T>
 where
     T: GetBookRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -24,7 +24,7 @@ impl<T> ReadBookUsecaseImpl<T>
 where
     T: GetBookRepo,
 {
-    pub fn new(repository: Arc<T>) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -36,10 +36,10 @@ where
 {
     async fn read_books(&self) -> Result<Vec<Book>, Arc<CustomError>> {
         // Dereferencing Arc to get to the inner T
-        read_books(&*self.repository).await
+        read_books(&self.repository).await
     }
     async fn read_book(&self, id: i32) -> Result<Book, Arc<CustomError>> {
-        read_book(&*self.repository, id).await
+        read_book(&self.repository, id).await
     }
 }
 
@@ -81,7 +81,7 @@ mod tests {
         // 모킹 동작 설정
         mock_repo.expect_get_books().returning(|| Ok(vec![])); // 성공 시 id 1반환
 
-        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(mock_repo);
 
         // Act
         let books = usecase.read_books().await;
@@ -104,7 +104,7 @@ mod tests {
             ))))
         });
 
-        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(mock_repo);
 
         // Act
         let result = usecase.read_books().await;
@@ -124,7 +124,7 @@ mod tests {
             .with(predicate::eq(id))
             .returning(|i| Ok(Book::new(Some(i), "새 가계부".to_string(), 1)));
 
-        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(mock_repo);
 
         // Act
         let result = usecase.read_book(id).await;
@@ -150,7 +150,7 @@ mod tests {
                 ))))
             });
 
-        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(Arc::new(mock_repo));
+        let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(mock_repo);
 
         // Act
         let result = usecase.read_book(id).await;

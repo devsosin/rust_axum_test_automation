@@ -11,7 +11,7 @@ pub(crate) struct ReadUserUsecaseImpl<T>
 where
     T: GetUserRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl<T> ReadUserUsecaseImpl<T>
 where
     T: GetUserRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -34,7 +34,7 @@ where
     T: GetUserRepo,
 {
     async fn read_user(&self, id: i32) -> Result<UserInfo, Arc<CustomError>> {
-        read_user(&*self.repository, id).await
+        read_user(&self.repository, id).await
     }
 }
 
@@ -84,6 +84,7 @@ mod tests {
                     "test1234@test.test".to_string(),
                     "test_password".to_string(),
                     "nickname".to_string(),
+                    "test1234@test.test".to_string(),
                     "email".to_string(),
                 )
                 .id(i)

@@ -30,10 +30,10 @@ use super::{
     },
 };
 
-pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
+pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
     let repository = SaveBookRepoImpl::new(pool.clone());
 
-    let usecase = CreateBookUsecaseImpl::new(Arc::new(repository));
+    let usecase = CreateBookUsecaseImpl::new(repository);
 
     Router::new().route(
         "/",
@@ -42,10 +42,10 @@ pub(crate) fn create_router(pool: Arc<PgPool>) -> Router {
     )
 }
 
-pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
-    let repository = GetBookRepoImpl::new(pool);
+pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
+    let repository = GetBookRepoImpl::new(pool.clone());
 
-    let usecase = ReadBookUsecaseImpl::new(Arc::new(repository));
+    let usecase = ReadBookUsecaseImpl::new(repository);
 
     Router::new()
         .route("/", get(read_books::<ReadBookUsecaseImpl<GetBookRepoImpl>>))
@@ -56,10 +56,10 @@ pub(crate) fn read_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn read_type_router(pool: Arc<PgPool>) -> Router {
-    let repository = GetBookTypeRepoImpl::new(pool);
+pub(crate) fn read_type_router(pool: &Arc<PgPool>) -> Router {
+    let repository = GetBookTypeRepoImpl::new(pool.clone());
 
-    let usecase = ReadBookTypeUsecaseImpl::new(Arc::new(repository));
+    let usecase = ReadBookTypeUsecaseImpl::new(repository);
 
     Router::new()
         .route(
@@ -69,9 +69,9 @@ pub(crate) fn read_type_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
-    let repository = UpdateBookRepoImpl::new(pool);
-    let usecase = UpdateBookUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
+    let repository = UpdateBookRepoImpl::new(pool.clone());
+    let usecase = UpdateBookUsecaseImpl::new(repository);
 
     Router::new()
         .route(
@@ -81,9 +81,9 @@ pub(crate) fn update_router(pool: Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn delete_router(pool: Arc<PgPool>) -> Router {
-    let repository = DeleteBookRepoImpl::new(pool);
-    let usecase = DeleteBookUsecaseImpl::new(Arc::new(repository));
+pub(crate) fn delete_router(pool: &Arc<PgPool>) -> Router {
+    let repository = DeleteBookRepoImpl::new(pool.clone());
+    let usecase = DeleteBookUsecaseImpl::new(repository);
 
     Router::new()
         .route(

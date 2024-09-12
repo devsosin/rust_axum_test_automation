@@ -8,7 +8,7 @@ use crate::{
     domain::user::{
         dto::request::NewUser,
         usecase::create::CreateUserUsecase,
-        util::{validation_email, validation_password_strength, validation_phone},
+        utils::validator::{validation_email, validation_password_strength, validation_phone},
     },
     global::errors::CustomError,
 };
@@ -100,12 +100,12 @@ mod tests {
     async fn check_create_user_status() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test1234@test.test".to_string(),
             None,
             None,
         );
@@ -124,12 +124,12 @@ mod tests {
     async fn check_create_user_body() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test1234@test.test".to_string(),
             None,
             None,
         );
@@ -161,12 +161,12 @@ mod tests {
     async fn check_password_strength() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "nostrong".to_string(),
             "nostrong".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test1234@test.test".to_string(),
             None,
             None,
         );
@@ -185,12 +185,12 @@ mod tests {
     async fn check_email_validation() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "email@notvalid".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "email@notvalid".to_string(),
             None,
             None,
         );
@@ -209,13 +209,13 @@ mod tests {
     async fn check_phone_validation() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
+            "test1234@test.test".to_string(),
             Some("010-11-494".to_string()),
-            None,
             None,
         );
 
@@ -233,12 +233,12 @@ mod tests {
     async fn check_password_match() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test1234@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "pwnotmatch".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test1234@test.test".to_string(),
             None,
             None,
         );
@@ -257,12 +257,12 @@ mod tests {
     async fn check_duplicated_user() {
         // Arrange
         let new_user = NewUser::new(
+            LoginType::Email,
             "test@test.test".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "Str0nGPassW0rd!@".to_string(),
             "nickname".to_string(),
-            LoginType::Email,
-            None,
+            "test@test.test".to_string(),
             None,
             None,
         );

@@ -6,15 +6,15 @@ CREATE TABLE tb_image(
 
 CREATE TABLE tb_user(
     id SERIAL PRIMARY KEY,
-    user_email VARCHAR(128) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    nickname VARCHAR(12),
     login_type VARCHAR(8) NOT NULL,
-    unique_id VARCHAR(64),
-    access_token VARCHAR(64),
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    access_token VARCHAR(255),
     
+    nickname VARCHAR(12),
     profile_id INT,
-    phone VARCHAR(16),
+    phone VARCHAR(25),
+    email VARCHAR(255) NOT NULL,
 
     is_active BOOLEAN DEFAULT TRUE,
     is_admin BOOLEAN DEFAULT FALSE,

@@ -22,8 +22,8 @@ pub(crate) trait UpdateRecordRepo: Send + Sync {
 }
 
 impl UpdateRecordRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+        Self { pool: pool.clone() }
     }
 }
 

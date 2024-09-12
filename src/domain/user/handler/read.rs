@@ -79,6 +79,7 @@ mod tests {
         let user_info = UserInfo::new(
             id,
             "test1234@test.test".to_string(),
+            "test1234@test.test".to_string(),
             "nickname".to_string(),
             LoginType::Email,
             Some("010-1234-5678".to_string()),
@@ -102,6 +103,7 @@ mod tests {
         let user_email = "test1234@test.test";
         let user_info = UserInfo::new(
             id,
+            user_email.to_string(),
             user_email.to_string(),
             "nickname".to_string(),
             LoginType::Email,

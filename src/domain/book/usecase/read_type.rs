@@ -11,7 +11,7 @@ pub struct ReadBookTypeUsecaseImpl<T>
 where
     T: GetBookTypeRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl<T> ReadBookTypeUsecaseImpl<T>
 where
     T: GetBookTypeRepo,
 {
-    pub fn new(repository: Arc<T>) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -34,7 +34,7 @@ where
     T: GetBookTypeRepo,
 {
     async fn read_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>> {
-        read_book_types(&*self.repository).await
+        read_book_types(&self.repository).await
     }
 }
 

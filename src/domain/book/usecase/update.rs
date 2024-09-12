@@ -11,7 +11,7 @@ pub struct UpdateBookUsecaseImpl<T>
 where
     T: UpdateBookRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl<T> UpdateBookUsecaseImpl<T>
 where
     T: UpdateBookRepo,
 {
-    pub fn new(repository: Arc<T>) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -34,7 +34,7 @@ where
     T: UpdateBookRepo,
 {
     async fn update_book(&self, id: i32, edit_book: &EditBook) -> Result<(), Arc<CustomError>> {
-        update_book(&*self.repository, id, edit_book).await
+        update_book(&self.repository, id, edit_book).await
     }
 }
 

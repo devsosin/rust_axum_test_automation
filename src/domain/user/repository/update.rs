@@ -19,8 +19,8 @@ pub(crate) trait UpdateUserRepo: Send + Sync {
 }
 
 impl UpdateUserRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+        Self { pool: pool.clone() }
     }
 }
 
@@ -188,6 +188,7 @@ mod tests {
             "updatetest1@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "updatetest1@test.test".to_string(),
             "email".to_string(),
         );
 
@@ -225,6 +226,7 @@ mod tests {
             "updatetest2@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "updatetest2@test.test".to_string(),
             "email".to_string(),
         );
 
@@ -274,6 +276,7 @@ mod tests {
             "updatetest3@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "updatetest3@test.test".to_string(),
             "email".to_string(),
         );
 
@@ -304,6 +307,7 @@ mod tests {
             "test1234pw@test.test".to_string(),
             hashed_password.clone(),
             "nickname".to_string(),
+            "test1234pw@test.test".to_string(),
             "email".to_string(),
         );
 
@@ -325,6 +329,7 @@ mod tests {
             "test1234up@test.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
+            "test1234up@test.test".to_string(),
             "email".to_string(),
         );
 

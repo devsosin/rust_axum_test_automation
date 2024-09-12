@@ -47,35 +47,35 @@ impl ToString for LoginType {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub(crate) struct NewUser {
-    user_email: String,
-    password: String,
-    password_confirm: String, // handler check
-    nickname: String,
     login_type: LoginType,
+    username: String,
+    password: String,
+    password_confirm: String,
+    nickname: String,
+    email: String,
     phone: Option<String>,
-    unique_id: Option<String>,
     access_token: Option<String>,
 }
 
 impl NewUser {
     pub(crate) fn new(
-        user_email: String,
+        login_type: LoginType,
+        username: String,
         password: String,
         password_confirm: String,
         nickname: String,
-        login_type: LoginType,
+        email: String,
         phone: Option<String>,
-        unique_id: Option<String>,
         access_token: Option<String>,
     ) -> Self {
         Self {
-            user_email,
+            login_type,
+            username,
             password,
             password_confirm,
             nickname,
-            login_type,
             phone,
-            unique_id,
+            email,
             access_token,
         }
     }
@@ -95,19 +95,19 @@ impl NewUser {
     pub(crate) fn to_entity(&self) -> User {
         let login_type = self.login_type.to_string();
         User::new(
-            self.user_email.to_string(),
+            self.username.to_string(),
             self.password.to_string(),
             self.nickname.to_string(),
+            self.email.to_string(),
             login_type,
         )
         .phone(self.phone.clone())
-        .unique_id(self.unique_id.clone())
         .access_token(self.access_token.clone())
         .build()
     }
 
     pub(crate) fn get_email(&self) -> &str {
-        &self.user_email
+        &self.email
     }
     pub(crate) fn get_phone(&self) -> &Option<String> {
         &self.phone
@@ -179,5 +179,69 @@ impl EditUser {
             None => FieldUpdate::NoChange,
         };
         UpdateUser::new(profile_id, password, phone, nickname)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub(crate) struct LoginInfo {
+    username: String,
+    password: String,
+    login_type: LoginType,
+    email: Option<String>,
+    nickname: Option<String>,
+    access_token: Option<String>,
+}
+
+impl LoginInfo {
+    pub fn new(
+        username: String,
+        password: String,
+        login_type: LoginType,
+        email: Option<String>,
+        nickname: Option<String>,
+        access_token: Option<String>,
+    ) -> Self {
+        Self {
+            username,
+            password,
+            login_type,
+            email,
+            nickname,
+            access_token,
+        }
+    }
+
+    pub fn get_login_type(&self) -> &LoginType {
+        &self.login_type
+    }
+
+    pub fn get_username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn get_password(&self) -> &str {
+        &self.password
+    }
+
+    pub fn get_email(&self) -> &Option<String> {
+        &self.email
+    }
+
+    pub fn get_nickname(&self) -> &Option<String> {
+        &self.nickname
+    }
+
+    pub fn get_access_token(&self) -> &Option<String> {
+        &self.access_token
+    }
+
+    pub fn to_entity(&self) -> User {
+        User::new(
+            self.username.to_string(),
+            self.password.to_string(),
+            self.nickname.as_ref().unwrap().to_string(),
+            self.email.as_ref().unwrap().to_string(),
+            self.login_type.to_string(),
+        )
     }
 }

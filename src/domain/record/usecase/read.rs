@@ -11,7 +11,7 @@ pub(crate) struct ReadRecordUsecaseImpl<T>
 where
     T: GetRecordRepo,
 {
-    repository: Arc<T>,
+    repository: T,
 }
 
 #[async_trait]
@@ -24,7 +24,7 @@ impl<T> ReadRecordUsecaseImpl<T>
 where
     T: GetRecordRepo,
 {
-    pub(crate) fn new(repository: Arc<T>) -> Self {
+    pub(crate) fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -35,11 +35,11 @@ where
     T: GetRecordRepo,
 {
     async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>> {
-        read_records(&*self.repository).await
+        read_records(&self.repository).await
     }
 
     async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>> {
-        read_record(&*self.repository, id).await
+        read_record(&self.repository, id).await
     }
 }
 

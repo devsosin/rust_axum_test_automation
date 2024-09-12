@@ -15,8 +15,8 @@ pub(crate) trait DeleteRecordRepo: Send + Sync {
 }
 
 impl DeleteRecordRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+        Self { pool: pool.clone() }
     }
 }
 
