@@ -7,7 +7,7 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct ReadRecordUsecaseImpl<T>
+pub struct ReadRecordUsecaseImpl<T>
 where
     T: GetRecordRepo,
 {
@@ -15,7 +15,7 @@ where
 }
 
 #[async_trait]
-pub(crate) trait ReadRecordUsecase: Send + Sync {
+pub trait ReadRecordUsecase: Send + Sync {
     async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>>;
     async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>>;
 }
@@ -24,7 +24,7 @@ impl<T> ReadRecordUsecaseImpl<T>
 where
     T: GetRecordRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }

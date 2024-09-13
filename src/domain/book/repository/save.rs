@@ -5,17 +5,17 @@ use sqlx::{PgPool, Row};
 
 use crate::{domain::book::entity::Book, global::errors::CustomError};
 
-pub(crate) struct SaveBookRepoImpl {
+pub struct SaveBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait SaveBookRepo: Send + Sync {
+pub trait SaveBookRepo: Send + Sync {
     async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>>;
 }
 
 impl SaveBookRepoImpl {
-    pub(crate) fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 }
@@ -27,7 +27,7 @@ impl SaveBookRepo for SaveBookRepoImpl {
     }
 }
 
-pub(crate) async fn save_book(pool: &PgPool, book: Book) -> Result<i32, Arc<CustomError>> {
+pub async fn save_book(pool: &PgPool, book: Book) -> Result<i32, Arc<CustomError>> {
     // 한 유저 내에서는 같은 이름의 가계부 생성 불가
     // type_id sub_query
     let row = sqlx::query(

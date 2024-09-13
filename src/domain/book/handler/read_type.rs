@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::book::usecase::read_type::ReadBookTypeUsecase;
 
-pub(crate) async fn read_book_types<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
+pub async fn read_book_types<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
 where
     T: ReadBookTypeUsecase,
 {

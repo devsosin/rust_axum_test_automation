@@ -5,12 +5,12 @@ use sqlx::PgPool;
 
 use crate::global::errors::CustomError;
 
-pub(crate) struct DeleteBookRepoImpl {
+pub struct DeleteBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait DeleteBookRepo: Send + Sync {
+pub trait DeleteBookRepo: Send + Sync {
     async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>>;
 }
 

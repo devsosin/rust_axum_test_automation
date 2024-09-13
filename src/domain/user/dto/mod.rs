@@ -1,2 +1,2 @@
 pub(crate) mod request;
-pub mod response;
+pub(crate) mod response;

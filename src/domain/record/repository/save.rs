@@ -5,12 +5,12 @@ use sqlx::{Error, PgPool};
 
 use crate::{domain::record::entity::Record, global::errors::CustomError};
 
-pub(crate) struct SaveRecordRepoImpl {
+pub struct SaveRecordRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait SaveRecordRepo: Send + Sync {
+pub trait SaveRecordRepo: Send + Sync {
     async fn save_record(
         &self,
         record: Record,
@@ -24,7 +24,7 @@ pub(crate) trait SaveRecordRepo: Send + Sync {
 }
 
 impl SaveRecordRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
@@ -48,7 +48,7 @@ impl SaveRecordRepo for SaveRecordRepoImpl {
     
 }
 
-pub(crate) async fn validate_connect_ids(
+pub async fn validate_connect_ids(
     pool: &PgPool,
     connect_ids: &Option<Vec<i32>>,
 ) -> Result<(), Arc<CustomError>> {
@@ -84,7 +84,7 @@ pub(crate) async fn validate_connect_ids(
     Ok(())
 }
 
-pub(crate) async fn save_record(
+pub async fn save_record(
     pool: &PgPool,
     record: Record,
     connect_ids: Option<Vec<i32>>,

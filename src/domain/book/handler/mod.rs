@@ -30,7 +30,7 @@ use super::{
     },
 };
 
-pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
+pub fn create_router(pool: &Arc<PgPool>) -> Router {
     let repository = SaveBookRepoImpl::new(pool.clone());
 
     let usecase = CreateBookUsecaseImpl::new(repository);
@@ -42,7 +42,7 @@ pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
     )
 }
 
-pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
+pub fn read_router(pool: &Arc<PgPool>) -> Router {
     let repository = GetBookRepoImpl::new(pool.clone());
 
     let usecase = ReadBookUsecaseImpl::new(repository);
@@ -56,7 +56,7 @@ pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn read_type_router(pool: &Arc<PgPool>) -> Router {
+pub fn read_type_router(pool: &Arc<PgPool>) -> Router {
     let repository = GetBookTypeRepoImpl::new(pool.clone());
 
     let usecase = ReadBookTypeUsecaseImpl::new(repository);
@@ -69,7 +69,7 @@ pub(crate) fn read_type_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
+pub fn update_router(pool: &Arc<PgPool>) -> Router {
     let repository = UpdateBookRepoImpl::new(pool.clone());
     let usecase = UpdateBookUsecaseImpl::new(repository);
 
@@ -81,7 +81,7 @@ pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn delete_router(pool: &Arc<PgPool>) -> Router {
+pub fn delete_router(pool: &Arc<PgPool>) -> Router {
     let repository = DeleteBookRepoImpl::new(pool.clone());
     let usecase = DeleteBookUsecaseImpl::new(repository);
 

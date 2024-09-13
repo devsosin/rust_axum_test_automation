@@ -7,7 +7,7 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct CreateRecordUsecaseImpl<T>
+pub struct CreateRecordUsecaseImpl<T>
 where
     T: SaveRecordRepo,
 {
@@ -15,7 +15,7 @@ where
 }
 
 #[async_trait]
-pub(crate) trait CreateRecordUsecase: Send + Sync {
+pub trait CreateRecordUsecase: Send + Sync {
     async fn create_record(&self, new_record: &NewRecord) -> Result<i64, Arc<CustomError>>;
 }
 
@@ -23,7 +23,7 @@ impl<T> CreateRecordUsecaseImpl<T>
 where
     T: SaveRecordRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }

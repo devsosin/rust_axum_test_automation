@@ -3,13 +3,15 @@ use std::sync::Arc;
 
 // Axum
 use axum::Router;
-use config::jwt::get_config;
-use hyper::StatusCode;
+use hyper::{
+    header::{AUTHORIZATION, CONTENT_TYPE},
+    Method, StatusCode,
+};
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 // Env
 use dotenv::dotenv;
 
-use middleware::auth::verify;
 // Logging
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -20,12 +22,12 @@ pub mod config {
 }
 
 pub mod global {
-    pub mod utils {}
     pub mod constants;
     pub mod errors;
 }
 
 pub mod domain {
+    pub mod auth;
     pub mod book;
     pub mod record;
     pub mod user;
@@ -36,12 +38,11 @@ pub mod middleware {
 }
 
 use crate::domain::{
-    book::route::get_router as book_router,
-    record::route::get_router as record_router,
-    user::route::{
-        get_private_router as user_private_router, get_public_router as user_public_router,
-    },
+    auth::route::get_router as auth_router, book::route::get_router as book_router,
+    record::route::get_router as record_router, user::route::get_router as user_router,
 };
+use config::jwt::get_config;
+use middleware::auth::verify;
 
 #[tokio::main]
 async fn main() {
@@ -61,24 +62,37 @@ async fn main() {
     let auth_config = Arc::new(get_config());
 
     // public router
-    let user_public_router = user_public_router(&pool, &auth_config);
-    let public_router = Router::new().nest("/api/v1/user", user_public_router);
+    let auth_router = auth_router(&pool, &auth_config);
+    let public_router = Router::new().nest("/api/v1/auth", auth_router);
 
     // private router
     let book_router = book_router(&pool);
     let record_router = record_router(&pool);
-    let user_private_router = user_private_router(&pool);
+    let user_router = user_router(&pool);
 
     let private_router = Router::new()
         .nest("/api/v1/book", book_router)
         .nest("/api/v1/record", record_router)
-        .nest("/api/v1/user", user_private_router)
+        .nest("/api/v1/user", user_router)
         .layer(axum::middleware::from_fn_with_state(auth_config, verify));
+
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::exact("http://localhost:5500".parse().unwrap())) // Replace with your frontend origin
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([CONTENT_TYPE, AUTHORIZATION])
+        .allow_credentials(true); // Allow cookies and credentials
 
     let app = Router::new()
         .route("/", axum::routing::get(|| async { "{\"status\": \"OK\"}" }))
         .merge(public_router)
-        .merge(private_router);
+        .merge(private_router)
+        .layer(cors); // Apply CORS layer
 
     let app =
         app.fallback(|| async { (StatusCode::NOT_FOUND, "존재하지 않는 API입니다.") });

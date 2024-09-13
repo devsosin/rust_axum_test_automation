@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::record::{dto::request::EditRecord, usecase::update::UpdateRecordUsecase};
 
-pub(crate) async fn update_record<T>(
+pub async fn update_record<T>(
     Extension(usecase): Extension<Arc<T>>,
     Path(id): Path<i64>,
     Json(edit_record): Json<EditRecord>,

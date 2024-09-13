@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::book::usecase::delete::DeleteBookUsecase;
 
-pub(crate) async fn delete_book<T>(
+pub async fn delete_book<T>(
     Extension(usecase): Extension<Arc<T>>,
     Path(id): Path<i32>,
 ) -> impl IntoResponse

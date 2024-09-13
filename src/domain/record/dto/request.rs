@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq)]
-pub(crate) struct NewRecord {
+pub struct NewRecord {
     book_id: i32,
     sub_category_id: i32,
     amount: i32,
@@ -18,7 +18,7 @@ pub(crate) struct NewRecord {
 }
 
 impl NewRecord {
-    pub(crate) fn new(
+    pub fn new(
         book_id: i32,
         sub_category_id: i32,
         amount: i32,
@@ -38,7 +38,7 @@ impl NewRecord {
         }
     }
 
-    pub(crate) fn to_entity(&self) -> Record {
+    pub fn to_entity(&self) -> Record {
         Record::new(
             self.book_id,
             self.sub_category_id,
@@ -56,7 +56,7 @@ impl NewRecord {
 }
 
 #[derive(Deserialize, Debug, Serialize, Clone, PartialEq)]
-pub(crate) struct EditRecord {
+pub struct EditRecord {
     sub_category_id: Option<i32>,
     amount: Option<i32>,
     memo: Option<String>,
@@ -65,7 +65,7 @@ pub(crate) struct EditRecord {
 }
 
 impl EditRecord {
-    pub(crate) fn new(
+    pub fn new(
         sub_category_id: Option<i32>,
         amount: Option<i32>,
         memo: Option<String>,
@@ -81,7 +81,7 @@ impl EditRecord {
         }
     }
 
-    pub(crate) fn to_update(self) -> UpdateRecord {
+    pub fn to_update(self) -> UpdateRecord {
         let sub_category_id = match self.sub_category_id {
             Some(v) => FieldUpdate::Set(v),
             None => FieldUpdate::NoChange,

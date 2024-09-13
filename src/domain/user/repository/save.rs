@@ -5,17 +5,17 @@ use sqlx::{PgPool, Row};
 
 use crate::{domain::user::entity::User, global::errors::CustomError};
 
-pub(crate) struct SaveUserRepoImpl {
+pub struct SaveUserRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait SaveUserRepo: Send + Sync {
+pub trait SaveUserRepo: Send + Sync {
     async fn save_user(&self, user: User) -> Result<i32, Arc<CustomError>>;
 }
 
 impl SaveUserRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
@@ -27,7 +27,7 @@ impl SaveUserRepo for SaveUserRepoImpl {
     }
 }
 
-pub(crate) async fn save_user(pool: &PgPool, user: User) -> Result<i32, Arc<CustomError>> {
+pub async fn save_user(pool: &PgPool, user: User) -> Result<i32, Arc<CustomError>> {
     let result = sqlx::query(
         "INSERT INTO tb_user (username, password, nickname, phone, 
                                         login_type, email, access_token) 

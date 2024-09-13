@@ -6,7 +6,7 @@ use crate::global::constants::FieldUpdate;
 use super::dto::response::UserInfo;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, PartialEq, Clone)]
-pub(super) struct User {
+pub struct User {
     id: Option<i32>,
     login_type: String,
     username: String,
@@ -26,7 +26,7 @@ pub(super) struct User {
 }
 
 impl User {
-    pub(super) fn new(
+    pub fn new(
         username: String,
         password: String,
         nickname: String,
@@ -53,24 +53,24 @@ impl User {
         }
     }
 
-    pub(crate) fn id(mut self, id: i32) -> Self {
+    pub fn id(mut self, id: i32) -> Self {
         self.id = Some(id);
         self
     }
-    pub(crate) fn phone(mut self, phone: Option<String>) -> Self {
+    pub fn phone(mut self, phone: Option<String>) -> Self {
         self.phone = phone;
         self
     }
-    pub(crate) fn access_token(mut self, access_token: Option<String>) -> Self {
+    pub fn access_token(mut self, access_token: Option<String>) -> Self {
         self.access_token = access_token;
         self
     }
-    pub(crate) fn profile_id(mut self, profile_id: Option<i32>) -> Self {
+    pub fn profile_id(mut self, profile_id: Option<i32>) -> Self {
         self.profile_id = profile_id;
         self
     }
 
-    pub(crate) fn build(self) -> Self {
+    pub fn build(self) -> Self {
         Self {
             id: self.id,
             login_type: self.login_type,
@@ -97,7 +97,7 @@ impl User {
     pub fn get_username(&self) -> &str {
         &self.username
     }
-    pub(crate) fn get_password(&self) -> &str {
+    pub fn get_password(&self) -> &str {
         &self.password
     }
     pub fn get_nickname(&self) -> &str {
@@ -139,7 +139,7 @@ impl User {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct UpdateUser {
+pub(super) struct UpdateUser {
     profile_id: FieldUpdate<i32>,
     password: FieldUpdate<String>,
     phone: FieldUpdate<String>,
@@ -147,7 +147,7 @@ pub(crate) struct UpdateUser {
 }
 
 impl UpdateUser {
-    pub(crate) fn new(
+    pub fn new(
         profile_id: FieldUpdate<i32>,
         password: FieldUpdate<String>,
         phone: FieldUpdate<String>,
@@ -161,16 +161,16 @@ impl UpdateUser {
         }
     }
 
-    pub(crate) fn get_profile_id(&self) -> &FieldUpdate<i32> {
+    pub fn get_profile_id(&self) -> &FieldUpdate<i32> {
         &self.profile_id
     }
-    pub(crate) fn get_password(&self) -> &FieldUpdate<String> {
+    pub fn get_password(&self) -> &FieldUpdate<String> {
         &self.password
     }
-    pub(crate) fn get_phone(&self) -> &FieldUpdate<String> {
+    pub fn get_phone(&self) -> &FieldUpdate<String> {
         &self.phone
     }
-    pub(crate) fn get_nickname(&self) -> &FieldUpdate<String> {
+    pub fn get_nickname(&self) -> &FieldUpdate<String> {
         &self.nickname
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct CreateUserUsecaseImpl<T>
+pub struct SignupUserUsecaseImpl<T>
 where
     T: SaveUserRepo,
 {
@@ -18,11 +18,11 @@ where
 }
 
 #[async_trait]
-pub(crate) trait CreateUserUsecase: Send + Sync {
-    async fn create_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>>;
+pub trait SignupUserUsecase: Send + Sync {
+    async fn signup_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>>;
 }
 
-impl<T> CreateUserUsecaseImpl<T>
+impl<T> SignupUserUsecaseImpl<T>
 where
     T: SaveUserRepo,
 {
@@ -32,12 +32,12 @@ where
 }
 
 #[async_trait]
-impl<T> CreateUserUsecase for CreateUserUsecaseImpl<T>
+impl<T> SignupUserUsecase for SignupUserUsecaseImpl<T>
 where
     T: SaveUserRepo,
 {
-    async fn create_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>> {
-        _create_user(&self.repository, new_user).await
+    async fn signup_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>> {
+        _signup_user(&self.repository, new_user).await
     }
 }
 
@@ -51,7 +51,7 @@ fn _hash_password(password: &str) -> Result<String, argon2::password_hash::Error
     hash_password_fixed(password.as_bytes(), "fixedsaltfortest") // valid base64 string it's crazy
 }
 
-async fn _create_user<T>(repository: &T, mut new_user: NewUser) -> Result<i32, Arc<CustomError>>
+async fn _signup_user<T>(repository: &T, mut new_user: NewUser) -> Result<i32, Arc<CustomError>>
 where
     T: SaveUserRepo,
 {
@@ -85,7 +85,7 @@ mod tests {
         global::errors::CustomError,
     };
 
-    use super::{_create_user, _hash_password};
+    use super::{_hash_password, _signup_user};
 
     mock! {
         SaveUserRepoImpl {}
@@ -124,7 +124,7 @@ mod tests {
             .returning(|_| Ok(1));
 
         // Act
-        let result = _create_user(&mock_repo, new_user).await;
+        let result = _signup_user(&mock_repo, new_user).await;
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert

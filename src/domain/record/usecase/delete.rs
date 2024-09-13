@@ -4,7 +4,7 @@ use axum::async_trait;
 
 use crate::{domain::record::repository::delete::DeleteRecordRepo, global::errors::CustomError};
 
-pub(crate) struct DeleteRecordUsecaseImpl<T>
+pub struct DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
@@ -12,7 +12,7 @@ where
 }
 
 #[async_trait]
-pub(crate) trait DeleteRecordUsecase: Send + Sync {
+pub trait DeleteRecordUsecase: Send + Sync {
     async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
 }
 
@@ -20,7 +20,7 @@ impl<T> DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }

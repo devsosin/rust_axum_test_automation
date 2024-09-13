@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::book::{dto::request::EditBook, usecase::update::UpdateBookUsecase};
 
-pub(crate) async fn update_book<T>(
+pub async fn update_book<T>(
     Extension(usecase): Extension<Arc<T>>,
     Path(id): Path<i32>,
     Json(edit_book): Json<EditBook>,

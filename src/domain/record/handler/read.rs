@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::record::usecase::read::ReadRecordUsecase;
 
-pub(crate) async fn read_records<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
+pub async fn read_records<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
 where
     T: ReadRecordUsecase,
 {
@@ -16,7 +16,7 @@ where
     }
 }
 
-pub(crate) async fn read_record<T>(
+pub async fn read_record<T>(
     Extension(usecase): Extension<Arc<T>>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse

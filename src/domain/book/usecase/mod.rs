@@ -1,5 +1,5 @@
-pub(crate) mod create;
-pub(crate) mod delete;
-pub(crate) mod read;
-pub(crate) mod read_type;
-pub(crate) mod update;
+pub(super) mod create;
+pub(super) mod delete;
+pub(super) mod read;
+pub(super) mod read_type;
+pub(super) mod update;

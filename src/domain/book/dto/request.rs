@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::book::entity::Book;
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Serialize)]
-pub(crate) struct NewBook {
+pub struct NewBook {
     name: String,
     type_id: i16,
 }
@@ -27,7 +27,7 @@ impl NewBook {
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Serialize)]
-pub(crate) struct EditBook {
+pub struct EditBook {
     name: String,
 }
 

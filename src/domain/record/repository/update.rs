@@ -8,12 +8,12 @@ use crate::{
     global::{constants::FieldUpdate, errors::CustomError},
 };
 
-pub(crate) struct UpdateRecordRepoImpl {
+pub struct UpdateRecordRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait UpdateRecordRepo: Send + Sync {
+pub trait UpdateRecordRepo: Send + Sync {
     async fn update_record(
         &self,
         id: i64,
@@ -22,7 +22,7 @@ pub(crate) trait UpdateRecordRepo: Send + Sync {
 }
 
 impl UpdateRecordRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }

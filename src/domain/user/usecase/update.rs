@@ -11,7 +11,7 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct UpdateUserUsecaseImpl<T>
+pub struct UpdateUserUsecaseImpl<T>
 where
     T: UpdateUserRepo,
 {
@@ -19,7 +19,7 @@ where
 }
 
 #[async_trait]
-pub(crate) trait UpdateUserUsecase: Send + Sync {
+pub trait UpdateUserUsecase: Send + Sync {
     async fn update_user(&self, id: i32, edit_user: EditUser) -> Result<(), Arc<CustomError>>;
 }
 
@@ -27,7 +27,7 @@ impl<T> UpdateUserUsecaseImpl<T>
 where
     T: UpdateUserRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }

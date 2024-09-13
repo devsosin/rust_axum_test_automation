@@ -3,27 +3,27 @@ use std::sync::Arc;
 use axum::async_trait;
 
 use crate::{
-    domain::user::{dto::response::UserInfo, repository::get_user::GetUserRepo},
+    domain::user::{dto::response::UserInfo, repository::get_by_id::GetUserByIdRepo},
     global::errors::CustomError,
 };
 
-pub(crate) struct ReadUserUsecaseImpl<T>
+pub struct ReadUserUsecaseImpl<T>
 where
-    T: GetUserRepo,
+    T: GetUserByIdRepo,
 {
     repository: T,
 }
 
 #[async_trait]
-pub(crate) trait ReadUserUsecase: Send + Sync {
+pub trait ReadUserUsecase: Send + Sync {
     async fn read_user(&self, id: i32) -> Result<UserInfo, Arc<CustomError>>;
 }
 
 impl<T> ReadUserUsecaseImpl<T>
 where
-    T: GetUserRepo,
+    T: GetUserByIdRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }
@@ -31,16 +31,16 @@ where
 #[async_trait]
 impl<T> ReadUserUsecase for ReadUserUsecaseImpl<T>
 where
-    T: GetUserRepo,
+    T: GetUserByIdRepo,
 {
     async fn read_user(&self, id: i32) -> Result<UserInfo, Arc<CustomError>> {
         read_user(&self.repository, id).await
     }
 }
 
-pub(crate) async fn read_user<T>(repository: &T, id: i32) -> Result<UserInfo, Arc<CustomError>>
+pub async fn read_user<T>(repository: &T, id: i32) -> Result<UserInfo, Arc<CustomError>>
 where
-    T: GetUserRepo,
+    T: GetUserByIdRepo,
 {
     let user = repository.get_by_id(id).await?;
 
@@ -55,7 +55,7 @@ mod tests {
     use mockall::{mock, predicate};
 
     use crate::{
-        domain::user::{entity::User, repository::get_user::GetUserRepo},
+        domain::user::{entity::User, repository::get_by_id::GetUserByIdRepo},
         global::errors::CustomError,
     };
 
@@ -65,7 +65,7 @@ mod tests {
         GetUserRepoImpl {}
 
         #[async_trait]
-        impl GetUserRepo for GetUserRepoImpl {
+        impl GetUserByIdRepo for GetUserRepoImpl {
             async fn get_by_id(&self, id: i32) -> Result<User, Arc<CustomError>>;
         }
     }

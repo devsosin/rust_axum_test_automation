@@ -1,6 +1,6 @@
 use regex::Regex;
 
-pub(crate) enum PasswordValidationError {
+pub enum PasswordValidationError {
     TooShort,
     MissingUppercase,
     MissingLowercase,
@@ -9,9 +9,7 @@ pub(crate) enum PasswordValidationError {
     TooSimple,
 }
 
-pub(crate) fn validation_password_strength(
-    password: &str,
-) -> Result<(), Vec<PasswordValidationError>> {
+pub fn validation_password_strength(password: &str) -> Result<(), Vec<PasswordValidationError>> {
     let mut errors = Vec::with_capacity(5);
 
     if password.len() < 8 {
@@ -42,12 +40,12 @@ pub(crate) fn validation_password_strength(
     Ok(())
 }
 
-pub(crate) fn validation_email(email: &str) -> bool {
+pub fn validation_email(email: &str) -> bool {
     let email_regex = Regex::new(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").unwrap();
     email_regex.is_match(email)
 }
 
-pub(crate) fn validation_phone(phone: &str) -> bool {
+pub fn validation_phone(phone: &str) -> bool {
     let phone_regex = Regex::new(r#"^[\d\s\-\(\)]+$"#).unwrap();
     let sanitized_input: String = phone.chars().filter(|c| c.is_digit(10)).collect();
     phone_regex.is_match(phone) && sanitized_input.len() >= 10

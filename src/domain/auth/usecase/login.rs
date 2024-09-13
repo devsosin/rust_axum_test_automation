@@ -8,9 +8,8 @@ use crate::{
             request::{LoginInfo, LoginType},
             response::UserInfo,
         },
-        entity::User,
         repository::{
-            login::LoginUserRepo,
+            get_by_username::GetUserByUsernameRepo,
             save::{save_user, SaveUserRepo},
         },
         utils::password_hash::{hash_password, hash_password_fixed, verify_password},
@@ -18,9 +17,9 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct LoginUserUsecaseImpl<T, U>
+pub struct LoginUserUsecaseImpl<T, U>
 where
-    T: LoginUserRepo,
+    T: GetUserByUsernameRepo,
     U: SaveUserRepo,
 {
     login_repo: T,
@@ -28,16 +27,16 @@ where
 }
 
 #[async_trait]
-pub(crate) trait LoginUserUsecase: Send + Sync {
+pub trait LoginUserUsecase: Send + Sync {
     async fn login(&self, login_info: LoginInfo) -> Result<UserInfo, Arc<CustomError>>;
 }
 
 impl<T, U> LoginUserUsecaseImpl<T, U>
 where
-    T: LoginUserRepo,
+    T: GetUserByUsernameRepo,
     U: SaveUserRepo,
 {
-    pub(crate) fn new(login_repo: T, save_repo: U) -> Self {
+    pub fn new(login_repo: T, save_repo: U) -> Self {
         Self {
             login_repo,
             save_repo,
@@ -48,7 +47,7 @@ where
 #[async_trait]
 impl<T, U> LoginUserUsecase for LoginUserUsecaseImpl<T, U>
 where
-    T: LoginUserRepo,
+    T: GetUserByUsernameRepo,
     U: SaveUserRepo,
 {
     async fn login(&self, login_info: LoginInfo) -> Result<UserInfo, Arc<CustomError>> {
@@ -72,7 +71,7 @@ async fn _login<T, U>(
     login_info: LoginInfo,
 ) -> Result<UserInfo, Arc<CustomError>>
 where
-    T: LoginUserRepo,
+    T: GetUserByUsernameRepo,
     U: SaveUserRepo,
 {
     let result = login_repo.get_by_username(login_info.get_username()).await;
@@ -111,7 +110,7 @@ mod tests {
         domain::user::{
             dto::request::{LoginInfo, LoginType},
             entity::User,
-            repository::{login::LoginUserRepo, save::SaveUserRepo},
+            repository::{get_by_username::GetUserByUsernameRepo, save::SaveUserRepo},
         },
         global::errors::CustomError,
     };
@@ -122,7 +121,7 @@ mod tests {
         LoginUserRepoImpl {}
 
         #[async_trait]
-        impl LoginUserRepo for LoginUserRepoImpl {
+        impl GetUserByUsernameRepo for LoginUserRepoImpl {
             async fn get_by_username(&self, username: &str) -> Result<User, Arc<CustomError>>;
         }
     }

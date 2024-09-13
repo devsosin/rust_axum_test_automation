@@ -5,12 +5,12 @@ use sqlx::PgPool;
 
 use crate::{domain::book::entity::BookType, global::errors::CustomError};
 
-pub(crate) struct GetBookTypeRepoImpl {
+pub struct GetBookTypeRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait GetBookTypeRepo: Send + Sync {
+pub trait GetBookTypeRepo: Send + Sync {
     async fn get_book_types(&self) -> Result<Vec<BookType>, Arc<CustomError>>;
     async fn get_book_type_by_name(&self, name: &str) -> Result<BookType, Arc<CustomError>>;
 }

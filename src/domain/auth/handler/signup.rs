@@ -5,20 +5,22 @@ use hyper::StatusCode;
 use serde_json::json;
 
 use crate::{
-    domain::user::{
-        dto::request::NewUser,
-        usecase::create::CreateUserUsecase,
-        utils::validator::{validation_email, validation_password_strength, validation_phone},
+    domain::{
+        auth::usecase::signup::SignupUserUsecase,
+        user::{
+            dto::request::NewUser,
+            utils::validator::{validation_email, validation_password_strength, validation_phone},
+        },
     },
     global::errors::CustomError,
 };
 
-pub(crate) async fn create_user<T>(
+pub(crate) async fn signup<T>(
     Extension(usecase): Extension<Arc<T>>,
     Json(new_user): Json<NewUser>,
 ) -> impl IntoResponse
 where
-    T: CreateUserUsecase,
+    T: SignupUserUsecase,
 {
     if !validation_email(new_user.get_email()) {
         return CustomError::ValidationError("Email validation".to_string()).into_response();
@@ -38,7 +40,7 @@ where
         }
     }
 
-    match usecase.create_user(new_user).await {
+    match usecase.signup_user(new_user).await {
         Ok(id) => (StatusCode::CREATED, Json(json!({"user_id": id}))).into_response(),
         Err(e) => e.as_ref().into_response(),
     }
@@ -55,35 +57,33 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::{
-        domain::user::{
-            dto::request::{LoginType, NewUser},
-            handler::create::create_user,
-            usecase::create::CreateUserUsecase,
+        domain::{
+            auth::usecase::signup::SignupUserUsecase,
+            user::dto::request::{LoginType, NewUser},
         },
         global::errors::CustomError,
     };
+
+    use super::signup;
 
     mock! {
         CreateUserUsecaseImpl {}
 
         #[async_trait]
-        impl CreateUserUsecase for CreateUserUsecaseImpl {
-            async fn create_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>>;
+        impl SignupUserUsecase for CreateUserUsecaseImpl {
+            async fn signup_user(&self, new_user: NewUser) -> Result<i32, Arc<CustomError>>;
         }
     }
 
     fn _create_app(new_user: &NewUser, ret: Result<i32, Arc<CustomError>>) -> Router {
         let mut mock_usecase = MockCreateUserUsecaseImpl::new();
         mock_usecase
-            .expect_create_user()
+            .expect_signup_user()
             .with(predicate::eq(new_user.clone()))
             .returning(move |_| ret.clone());
 
         Router::new()
-            .route(
-                "/api/v1/user",
-                post(create_user::<MockCreateUserUsecaseImpl>),
-            )
+            .route("/api/v1/user", post(signup::<MockCreateUserUsecaseImpl>))
             .layer(Extension(Arc::new(mock_usecase)))
     }
 

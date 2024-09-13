@@ -1,4 +1,4 @@
-pub(crate) mod delete;
-pub(crate) mod get_record;
-pub(crate) mod save;
-pub(crate) mod update;
+pub(super) mod delete;
+pub(super) mod get_record;
+pub(super) mod save;
+pub(super) mod update;

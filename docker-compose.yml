@@ -10,8 +10,10 @@ services:
     volumes:
       # - ./db/data/:/var/lib/postgresql/data/
       - ./db/init/:/docker-entrypoint-initdb.d/
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sosiny"]
+      test: ["CMD-SHELL", "pg_isready -U sosiny_db"]
       interval: 6s
       retries: 5
 

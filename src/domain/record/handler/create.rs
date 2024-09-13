@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::record::{dto::request::NewRecord, usecase::create::CreateRecordUsecase};
 
-pub(crate) async fn create_record<T>(
+pub async fn create_record<T>(
     Extension(usecase): Extension<Arc<T>>,
     Json(new_record): Json<NewRecord>,
 ) -> impl IntoResponse

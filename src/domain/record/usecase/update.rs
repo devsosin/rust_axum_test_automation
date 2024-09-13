@@ -7,7 +7,7 @@ use crate::{
     global::errors::CustomError,
 };
 
-pub(crate) struct UpdateRecordUsecaseImpl<T>
+pub struct UpdateRecordUsecaseImpl<T>
 where
     T: UpdateRecordRepo,
 {
@@ -24,7 +24,7 @@ impl<T> UpdateRecordUsecaseImpl<T>
 where
     T: UpdateRecordRepo,
 {
-    pub(crate) fn new(repository: T) -> Self {
+    pub fn new(repository: T) -> Self {
         Self { repository }
     }
 }

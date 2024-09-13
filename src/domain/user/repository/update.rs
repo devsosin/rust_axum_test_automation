@@ -8,18 +8,18 @@ use crate::{
     global::{constants::FieldUpdate, errors::CustomError},
 };
 
-pub(crate) struct UpdateUserRepoImpl {
+pub struct UpdateUserRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait UpdateUserRepo: Send + Sync {
+pub trait UpdateUserRepo: Send + Sync {
     async fn update_user(&self, id: i32, edit_user: UpdateUser) -> Result<(), Arc<CustomError>>;
     async fn verify_password(&self, id: i32, password: String) -> Result<(), Arc<CustomError>>;
 }
 
 impl UpdateUserRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
@@ -163,7 +163,7 @@ mod tests {
         config::database::create_connection_pool,
         domain::user::{
             entity::{UpdateUser, User},
-            repository::{get_user::get_by_id, save::save_user},
+            repository::{get_by_id::get_by_id, save::save_user},
         },
         global::constants::FieldUpdate,
     };

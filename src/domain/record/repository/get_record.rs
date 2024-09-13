@@ -5,18 +5,18 @@ use sqlx::PgPool;
 
 use crate::{domain::record::entity::Record, global::errors::CustomError};
 
-pub(crate) struct GetRecordRepoImpl {
+pub struct GetRecordRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait GetRecordRepo: Send + Sync {
+pub trait GetRecordRepo: Send + Sync {
     async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>>;
     async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>>;
 }
 
 impl GetRecordRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
@@ -49,7 +49,7 @@ async fn get_list(pool: &PgPool) -> Result<Vec<Record>, Arc<CustomError>> {
     Ok(rows)
 }
 
-pub(crate) async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, Arc<CustomError>> {
+pub async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, Arc<CustomError>> {
     let row = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE id = $1")
         .bind(id)
         .fetch_one(pool)

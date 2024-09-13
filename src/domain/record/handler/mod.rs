@@ -28,7 +28,7 @@ use super::{
     },
 };
 
-pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
+pub fn create_router(pool: &Arc<PgPool>) -> Router {
     let repository = SaveRecordRepoImpl::new(&pool);
     let usecase = CreateRecordUsecaseImpl::new(repository);
 
@@ -40,7 +40,7 @@ pub(crate) fn create_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
+pub fn read_router(pool: &Arc<PgPool>) -> Router {
     let repository = GetRecordRepoImpl::new(&pool);
     let usecase = ReadRecordUsecaseImpl::new(repository);
 
@@ -56,7 +56,7 @@ pub(crate) fn read_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
+pub fn update_router(pool: &Arc<PgPool>) -> Router {
     let repository = UpdateRecordRepoImpl::new(&pool);
     let usecase = UpdateRecordUsecaseImpl::new(repository);
 
@@ -68,7 +68,7 @@ pub(crate) fn update_router(pool: &Arc<PgPool>) -> Router {
         .layer(Extension(Arc::new(usecase)))
 }
 
-pub(crate) fn delete_router(pool: &Arc<PgPool>) -> Router {
+pub fn delete_router(pool: &Arc<PgPool>) -> Router {
     let repository = DeleteRecordRepoImpl::new(&pool);
     let usecase = DeleteRecordUsecaseImpl::new(repository);
 

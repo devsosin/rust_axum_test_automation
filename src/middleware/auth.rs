@@ -7,7 +7,7 @@ use axum_extra::extract::CookieJar;
 use hyper::{header, StatusCode};
 use serde::Serialize;
 
-use crate::{config::jwt::AuthConfig, domain::user::utils::jwt::decode_jwt};
+use crate::{config::jwt::AuthConfig, domain::auth::utils::jwt::decode_jwt};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {

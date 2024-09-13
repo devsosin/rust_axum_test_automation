@@ -1,5 +1,5 @@
-pub(crate) mod delete;
-pub(crate) mod get_user;
-pub(crate) mod login;
+pub(super) mod delete;
+pub(crate) mod get_by_id;
+pub(crate) mod get_by_username;
 pub(crate) mod save;
-pub(crate) mod update;
+pub(super) mod update;

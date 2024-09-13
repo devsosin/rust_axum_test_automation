@@ -5,12 +5,12 @@ use sqlx::PgPool;
 
 use crate::{domain::book::entity::Book, global::errors::CustomError};
 
-pub(crate) struct GetBookRepoImpl {
+pub struct GetBookRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait GetBookRepo: Send + Sync {
+pub trait GetBookRepo: Send + Sync {
     async fn get_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
     async fn get_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
 }
@@ -54,7 +54,7 @@ async fn get_books(pool: &PgPool) -> Result<Vec<Book>, Arc<CustomError>> {
     Ok(books)
 }
 
-pub(crate) async fn get_book(pool: &PgPool, id: i32) -> Result<Book, Arc<CustomError>> {
+pub async fn get_book(pool: &PgPool, id: i32) -> Result<Book, Arc<CustomError>> {
     let book = sqlx::query_as::<_, Book>("SELECT * FROM tb_book WHERE id=$1")
         .bind(id)
         .fetch_one(pool)

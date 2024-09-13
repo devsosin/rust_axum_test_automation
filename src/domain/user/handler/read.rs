@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::domain::user::usecase::read::ReadUserUsecase;
 
-pub(crate) async fn read_user<T>(
+pub async fn read_user<T>(
     Extension(usecase): Extension<Arc<T>>,
     Path(id): Path<i32>,
 ) -> impl IntoResponse

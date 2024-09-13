@@ -5,35 +5,35 @@ use sqlx::PgPool;
 
 use crate::{domain::user::entity::User, global::errors::CustomError};
 
-pub(crate) struct LoginUserRepoImpl {
+pub struct GetUserByIdRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait LoginUserRepo: Send + Sync {
-    async fn get_by_username(&self, username: &str) -> Result<User, Arc<CustomError>>;
+pub trait GetUserByIdRepo: Send + Sync {
+    async fn get_by_id(&self, id: i32) -> Result<User, Arc<CustomError>>;
 }
 
-impl LoginUserRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+impl GetUserByIdRepoImpl {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
 
 #[async_trait]
-impl LoginUserRepo for LoginUserRepoImpl {
-    async fn get_by_username(&self, username: &str) -> Result<User, Arc<CustomError>> {
-        _get_by_username(&self.pool, username).await
+impl GetUserByIdRepo for GetUserByIdRepoImpl {
+    async fn get_by_id(&self, id: i32) -> Result<User, Arc<CustomError>> {
+        get_by_id(&self.pool, id).await
     }
 }
 
-async fn _get_by_username(pool: &PgPool, username: &str) -> Result<User, Arc<CustomError>> {
-    let row = sqlx::query_as::<_, User>("SELECT * FROM tb_user WHERE username = $1")
-        .bind(username)
+pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<User, Arc<CustomError>> {
+    let row = sqlx::query_as::<_, User>("SELECT * FROM tb_user WHERE id = $1")
+        .bind(id)
         .fetch_one(pool)
         .await
         .map_err(|e| {
-            let err_msg = format!("Error(GetByUsername {}): {:?}", username, &e);
+            let err_msg = format!("Error(GetUser {}): {:?}", id, &e);
             tracing::error!("{}", err_msg);
 
             let err = match e {
@@ -52,13 +52,10 @@ async fn _get_by_username(pool: &PgPool, username: &str) -> Result<User, Arc<Cus
 mod tests {
     use crate::{
         config::database::create_connection_pool,
-        domain::user::{
-            entity::User,
-            repository::{get_user::get_by_id, save::save_user},
-        },
+        domain::user::{entity::User, repository::save::save_user},
     };
 
-    use super::_get_by_username;
+    use super::get_by_id;
 
     #[tokio::test]
     async fn check_database_connectivity() {
@@ -70,44 +67,37 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_get_by_username_success() {
+    async fn check_get_user_success() {
         // Arrange
         let pool = create_connection_pool().await;
-
-        let username = "login_test@test.test";
-
         let user = User::new(
-            username.to_string(),
+            "gettest@gettest.test".to_string(),
             "test_password".to_string(),
             "nickname".to_string(),
-            "test1234@test.test".to_string(),
+            "gettest@gettest.test".to_string(),
             "email".to_string(),
         );
-
-        let new_id = save_user(&pool, user).await.unwrap();
+        let new_id = save_user(&pool, user.clone()).await.unwrap();
 
         // Act
-        let result = _get_by_username(&pool, username).await;
+        let result = get_by_id(&pool, new_id).await;
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
-        let user = get_by_id(&pool, new_id).await.unwrap();
-
-        assert_eq!(user.get_id(), result.get_id())
+        assert_eq!(result.get_username(), user.get_username())
     }
 
     #[tokio::test]
-    async fn check_username_not_found() {
+    async fn check_user_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
-
-        let username = "not_found_username@test.test";
+        let no_id = -32;
 
         // Act
-        let result = _get_by_username(&pool, username).await;
+        let reuslt = get_by_id(&pool, no_id).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(reuslt.is_err())
     }
 }

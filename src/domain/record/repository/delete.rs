@@ -5,17 +5,17 @@ use sqlx::PgPool;
 
 use crate::global::errors::CustomError;
 
-pub(crate) struct DeleteRecordRepoImpl {
+pub struct DeleteRecordRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait DeleteRecordRepo: Send + Sync {
+pub trait DeleteRecordRepo: Send + Sync {
     async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
 }
 
 impl DeleteRecordRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }

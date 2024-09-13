@@ -46,7 +46,7 @@ impl ToString for LoginType {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-pub(crate) struct NewUser {
+pub struct NewUser {
     login_type: LoginType,
     username: String,
     password: String,
@@ -58,7 +58,7 @@ pub(crate) struct NewUser {
 }
 
 impl NewUser {
-    pub(crate) fn new(
+    pub fn new(
         login_type: LoginType,
         username: String,
         password: String,
@@ -80,19 +80,19 @@ impl NewUser {
         }
     }
 
-    pub(crate) fn set_password(&mut self, password: String) {
+    pub fn set_password(&mut self, password: String) {
         self.password = password
     }
 
-    pub(crate) fn password(&self) -> &str {
+    pub fn password(&self) -> &str {
         &self.password
     }
 
-    pub(crate) fn is_password_matching(&self) -> bool {
+    pub fn is_password_matching(&self) -> bool {
         &self.password == &self.password_confirm
     }
 
-    pub(crate) fn to_entity(&self) -> User {
+    pub fn to_entity(&self) -> User {
         let login_type = self.login_type.to_string();
         User::new(
             self.username.to_string(),
@@ -106,32 +106,32 @@ impl NewUser {
         .build()
     }
 
-    pub(crate) fn get_email(&self) -> &str {
+    pub fn get_email(&self) -> &str {
         &self.email
     }
-    pub(crate) fn get_phone(&self) -> &Option<String> {
+    pub fn get_phone(&self) -> &Option<String> {
         &self.phone
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-pub(crate) struct EditPassword {
+pub struct EditPassword {
     new: String,
     original: String, // password confirm
 }
 
 impl EditPassword {
-    pub(crate) fn new(new: String, original: String) -> Self {
+    pub fn new(new: String, original: String) -> Self {
         Self { new, original }
     }
 
-    pub(crate) fn get_password(&self) -> &str {
+    pub fn get_password(&self) -> &str {
         &self.original
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-pub(crate) struct EditUser {
+pub struct EditUser {
     profile_id: Option<i32>,
     password: Option<EditPassword>,
     phone: Option<String>,
@@ -139,7 +139,7 @@ pub(crate) struct EditUser {
 }
 
 impl EditUser {
-    pub(crate) fn new(
+    pub fn new(
         profile_id: Option<i32>,
         password: Option<EditPassword>,
         phone: Option<String>,
@@ -152,14 +152,14 @@ impl EditUser {
             nickname,
         }
     }
-    pub(crate) fn get_password(&self) -> &Option<EditPassword> {
+    pub fn get_password(&self) -> &Option<EditPassword> {
         &self.password
     }
-    pub(crate) fn get_phone(&self) -> &Option<String> {
+    pub fn get_phone(&self) -> &Option<String> {
         &self.phone
     }
 
-    pub(crate) fn to_update(self) -> UpdateUser {
+    pub fn to_update(self) -> UpdateUser {
         let profile_id = match self.profile_id {
             // 프로필 내리기 -> 0이면
             Some(v) if v == 0 => FieldUpdate::SetNone,
@@ -183,7 +183,7 @@ impl EditUser {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub(crate) struct LoginInfo {
+pub struct LoginInfo {
     username: String,
     password: String,
     login_type: LoginType,

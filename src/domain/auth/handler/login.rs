@@ -12,8 +12,9 @@ use serde_json::json;
 
 use crate::{
     config::jwt::AuthConfig,
-    domain::user::{
-        dto::request::LoginInfo, usecase::login::LoginUserUsecase, utils::jwt::create_jwt,
+    domain::{
+        auth::{usecase::login::LoginUserUsecase, utils::jwt::create_jwt},
+        user::dto::request::LoginInfo,
     },
 };
 
@@ -83,12 +84,12 @@ mod tests {
 
     use crate::{
         config::jwt::get_config,
-        domain::user::{
-            dto::{
+        domain::{
+            auth::usecase::login::LoginUserUsecase,
+            user::dto::{
                 request::{LoginInfo, LoginType},
                 response::UserInfo,
             },
-            usecase::login::LoginUserUsecase,
         },
         global::errors::CustomError,
     };
@@ -134,7 +135,7 @@ mod tests {
     fn _create_app(mock_usecase: MockLoginUserUsecaseImpl) -> Router {
         Router::new()
             .route(
-                "/api/v1/user/login",
+                "/api/v1/auth/login",
                 post(login::<MockLoginUserUsecaseImpl>),
             )
             .layer(Extension(Arc::new(mock_usecase)))
@@ -144,7 +145,7 @@ mod tests {
     fn _create_req(login_info: &LoginInfo) -> Request<Body> {
         Request::builder()
             .method("POST")
-            .uri("/api/v1/user/login")
+            .uri("/api/v1/auth/login")
             .header("content-type", "application/json")
             .body(Body::from(to_string(&login_info).unwrap()))
             .unwrap()

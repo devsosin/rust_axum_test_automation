@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::domain::book::{dto::request::NewBook, usecase::create::CreateBookUsecase};
 
-pub(crate) async fn create_book<T>(
+pub async fn create_book<T>(
     Extension(usecase): Extension<Arc<T>>,
     Json(new_book): Json<NewBook>,
 ) -> impl IntoResponse

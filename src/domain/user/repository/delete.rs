@@ -5,17 +5,17 @@ use sqlx::PgPool;
 
 use crate::global::errors::CustomError;
 
-pub(crate) struct DeleteUserRepoImpl {
+pub struct DeleteUserRepoImpl {
     pool: Arc<PgPool>,
 }
 
 #[async_trait]
-pub(crate) trait DeleteUserRepo: Send + Sync {
+pub trait DeleteUserRepo: Send + Sync {
     async fn delete_user(&self, id: i32) -> Result<(), Arc<CustomError>>;
 }
 
 impl DeleteUserRepoImpl {
-    pub(crate) fn new(pool: &Arc<PgPool>) -> Self {
+    pub fn new(pool: &Arc<PgPool>) -> Self {
         Self { pool: pool.clone() }
     }
 }
@@ -57,7 +57,7 @@ mod tests {
         config::database::create_connection_pool,
         domain::user::{
             entity::User,
-            repository::{get_user::get_by_id, save::save_user},
+            repository::{get_by_id::get_by_id, save::save_user},
         },
     };
 
