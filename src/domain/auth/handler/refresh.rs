@@ -155,7 +155,7 @@ mod tests {
             .uri("/api/v1/auth/refresh")
             .header(
                 "Cookie",
-                HeaderValue::from_str(&("refresh=".to_string() + &refresh)).unwrap(),
+                HeaderValue::from_str(&("refresh=".to_string() + refresh)).unwrap(),
             )
             .body(Body::empty())
             .unwrap()

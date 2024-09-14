@@ -27,3 +27,5 @@ services:
       - DATABASE_URL=postgres://test:test1234@db:5432/test_db
       - JWT_ACCESS=test_access
       - JWT_REFRESH=test_refresh
+    env_file:
+      - .env.aws

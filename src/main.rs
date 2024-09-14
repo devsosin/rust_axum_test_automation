@@ -17,6 +17,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // User Defined Modules
 pub mod config {
+    pub mod aws;
     pub mod database;
     pub mod jwt;
 }
@@ -24,11 +25,13 @@ pub mod config {
 pub mod global {
     pub mod constants;
     pub mod errors;
+    pub mod utils;
 }
 
 pub mod domain {
     pub mod auth;
     pub mod book;
+    pub mod image;
     pub mod record;
     pub mod user;
 }
@@ -39,9 +42,10 @@ pub mod middleware {
 
 use crate::domain::{
     auth::route::get_router as auth_router, book::route::get_router as book_router,
-    record::route::get_router as record_router, user::route::get_router as user_router,
+    image::route::get_router as image_router, record::route::get_router as record_router,
+    user::route::get_router as user_router,
 };
-use config::jwt::get_config;
+use config::{aws::get_bucket, jwt::get_config};
 use middleware::auth::verify;
 
 #[tokio::main]
@@ -60,6 +64,7 @@ async fn main() {
     let pool = config::database::create_connection_pool().await;
     let pool = Arc::new(pool);
     let auth_config = Arc::new(get_config());
+    let aws_bucket = Arc::new(get_bucket());
 
     // public router
     let auth_router = auth_router(&pool, &auth_config);
@@ -69,11 +74,13 @@ async fn main() {
     let book_router = book_router(&pool);
     let record_router = record_router(&pool);
     let user_router = user_router(&pool);
+    let image_router = image_router(&pool, &aws_bucket);
 
     let private_router = Router::new()
         .nest("/api/v1/book", book_router)
         .nest("/api/v1/record", record_router)
         .nest("/api/v1/user", user_router)
+        .nest("/api/v1/image", image_router)
         .layer(axum::middleware::from_fn_with_state(auth_config, verify));
 
     let cors = CorsLayer::new()
