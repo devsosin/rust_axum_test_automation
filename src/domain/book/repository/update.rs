@@ -76,9 +76,9 @@ mod tests {
     async fn check_book_update_success() {
         // Arrange
         let pool = create_connection_pool().await;
-        let book = Book::new(None, "수정용 가계부".to_string(), 1);
+        let book = Book::new("수정용 가계부".to_string(), 1);
 
-        let inserted_id = save_book(&pool, book.clone()).await.unwrap();
+        let inserted_id = save_book(&pool, book.clone(), 1).await.unwrap();
         let target_name = "변경 가계부";
 
         // Act

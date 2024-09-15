@@ -8,8 +8,17 @@ pub struct Book {
 }
 
 impl Book {
-    pub fn new(id: Option<i32>, name: String, type_id: i16) -> Self {
-        Self { id, name, type_id }
+    pub fn new(name: String, type_id: i16) -> Self {
+        Self {
+            id: None,
+            name,
+            type_id,
+        }
+    }
+
+    pub fn id(mut self, id: i32) -> Self {
+        self.id = Some(id);
+        self
     }
 
     pub fn get_id(&self) -> Option<i32> {
@@ -48,5 +57,21 @@ impl BookType {
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+}
+
+pub struct BookRole {
+    user_id: i32,
+    book_id: i32,
+    role: String,
+}
+
+impl BookRole {
+    pub fn new(user_id: i32, book_id: i32, role: String) -> Self {
+        Self {
+            user_id,
+            book_id,
+            role,
+        }
     }
 }

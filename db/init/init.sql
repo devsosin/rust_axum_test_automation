@@ -41,7 +41,7 @@ CREATE TABLE tb_book(
 CREATE TABLE tb_user_book_role(
     user_id INT NOT NULL,
     book_id INT NOT NULL,
-    role VARCHAR(4),
+    role VARCHAR(8),
 
     PRIMARY KEY (user_id, book_id)
 );
@@ -204,4 +204,6 @@ INSERT INTO tb_connect(name) VALUES
 
 INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, created_at, asset_id) 
         VALUES (1, 18, 15000, '감자탕', NOW(), NOW(), NULL);
-        
+
+INSERT INTO tb_user(login_type, username, password, email) VALUES
+    ('email', 'test_user', 'test_password', 'test@test.test');

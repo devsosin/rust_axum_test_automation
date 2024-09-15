@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::async_trait;
 
 use crate::{
@@ -13,7 +11,7 @@ pub struct CreateBookUsecaseImpl<T: SaveBookRepo> {
 
 #[async_trait]
 pub trait CreateBookUsecase: Send + Sync {
-    async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>>;
+    async fn create_book(&self, new_book: &NewBook, user_id: i32) -> Result<i32, Box<CustomError>>;
 }
 
 impl<T> CreateBookUsecaseImpl<T>
@@ -30,17 +28,18 @@ impl<T> CreateBookUsecase for CreateBookUsecaseImpl<T>
 where
     T: SaveBookRepo,
 {
-    async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>> {
-        create_book(&self.repository, new_book).await
+    async fn create_book(&self, new_book: &NewBook, user_id: i32) -> Result<i32, Box<CustomError>> {
+        create_book(&self.repository, new_book, user_id).await
     }
 }
 
 pub async fn create_book<T: SaveBookRepo>(
     repository: &T,
     new_book: &NewBook,
-) -> Result<i32, Arc<CustomError>> {
+    user_id: i32,
+) -> Result<i32, Box<CustomError>> {
     let book = new_book.to_entity();
-    repository.save_book(book).await
+    repository.save_book(book, user_id).await
 }
 
 #[cfg(test)]
@@ -65,7 +64,7 @@ mod tests {
 
         #[async_trait]
         impl SaveBookRepo for SaveBookRepoImpl {
-            async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>>;
+            async fn save_book(&self, book: Book, user_id: i32) -> Result<i32, Box<CustomError>>;
         }
     }
     mock! {
@@ -81,20 +80,20 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_success() {
         // Arrange
-        let mut mock_repo = MockSaveBookRepoImpl::new();
-
         let new_book = NewBook::new("새 가계부".to_string(), 1);
+        let user_id = 1;
 
+        let mut mock_repo = MockSaveBookRepoImpl::new();
         // 모킹 동작 설정
         mock_repo
             .expect_save_book()
-            .with(predicate::eq(new_book.to_entity()))
-            .returning(|_| Ok(1)); // 성공 시 id 1반환
+            .with(predicate::eq(new_book.to_entity()), predicate::eq(user_id))
+            .returning(|_, _| Ok(1)); // 성공 시 id 1반환
 
         let usecase = CreateBookUsecaseImpl::new(mock_repo);
 
         // Act
-        let result = usecase.create_book(&new_book).await;
+        let result = usecase.create_book(&new_book, user_id).await;
         assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
@@ -107,15 +106,15 @@ mod tests {
     #[tokio::test]
     async fn check_create_book_failure() {
         // Arrnge
-        let mut mock_repo = MockSaveBookRepoImpl::new();
-
+        let user_id = 1;
         let new_book = NewBook::new("새 가계부".to_string(), 1);
 
+        let mut mock_repo = MockSaveBookRepoImpl::new();
         mock_repo
             .expect_save_book()
-            .with(predicate::eq(new_book.to_entity()))
-            .returning(|_| {
-                Err(Arc::new(CustomError::Unexpected(anyhow::Error::msg(
+            .with(predicate::eq(new_book.to_entity()), predicate::eq(user_id))
+            .returning(|_, _| {
+                Err(Box::new(CustomError::Unexpected(anyhow::Error::msg(
                     "에러 발생",
                 ))))
             }); // repo단위 에러 반환
@@ -123,7 +122,7 @@ mod tests {
         let usecase = CreateBookUsecaseImpl::new(mock_repo);
 
         // Act
-        let result = usecase.create_book(&new_book).await;
+        let result = usecase.create_book(&new_book, user_id).await;
 
         // Assert
         assert!(result.is_err())

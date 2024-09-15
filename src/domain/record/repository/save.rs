@@ -48,7 +48,7 @@ impl SaveRecordRepo for SaveRecordRepoImpl {
     
 }
 
-pub async fn validate_connect_ids(
+async fn validate_connect_ids(
     pool: &PgPool,
     connect_ids: &Option<Vec<i32>>,
 ) -> Result<(), Arc<CustomError>> {

@@ -122,7 +122,7 @@ mod tests {
         mock_repo
             .expect_get_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::new(Some(i), "새 가계부".to_string(), 1)));
+            .returning(|i| Ok(Book::new("새 가계부".to_string(), 1).id(i)));
 
         let usecase = ReadBookUsecaseImpl::<MockGetBookRepoImpl>::new(mock_repo);
 

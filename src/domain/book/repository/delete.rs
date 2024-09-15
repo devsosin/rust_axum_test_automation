@@ -77,9 +77,9 @@ mod tests {
     async fn check_delete_book_success() {
         // Arrange
         let pool = create_connection_pool().await;
-        let book = Book::new(None, "삭제용 가계부".to_string(), 1);
+        let book = Book::new("삭제용 가계부".to_string(), 1);
 
-        let target_id = save_book(&pool, book).await.unwrap();
+        let target_id = save_book(&pool, book, 1).await.unwrap();
 
         // Act
         let result = delete_book(&pool, target_id).await;

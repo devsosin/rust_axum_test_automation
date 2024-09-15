@@ -7,6 +7,7 @@ use crate::domain::book::{dto::request::NewBook, usecase::create::CreateBookUsec
 
 pub async fn create_book<T>(
     Extension(usecase): Extension<Arc<T>>,
+    Extension(user_id): Extension<i32>,
     Json(new_book): Json<NewBook>,
 ) -> impl IntoResponse
 where
@@ -15,7 +16,9 @@ where
     tracing::debug!("CALL: Create Book");
     tracing::info!("Create Book : {}", new_book.get_name());
 
-    match usecase.create_book(&new_book).await {
+    // type_id check 1 ~ 3
+
+    match usecase.create_book(&new_book, user_id).await {
         Ok(id) => {
             tracing::info!("Created: {}", id);
             (
@@ -26,7 +29,7 @@ where
         }
         Err(err) => {
             tracing::error!("Error: {:?}", err);
-            err.as_ref().into_response()
+            err.into_response()
         }
     }
 }
@@ -61,7 +64,7 @@ mod tests {
 
         #[async_trait]
         impl CreateBookUsecase for CreateBookUsecaseImpl {
-            async fn create_book(&self, new_book: &NewBook) -> Result<i32, Arc<CustomError>>;
+            async fn create_book(&self, new_book: &NewBook, user_id: i32) -> Result<i32, Box<CustomError>>;
         }
     }
 
@@ -76,18 +79,29 @@ mod tests {
     }
 
     fn create_app(new_book: &NewBook, ret: Result<i32, Arc<CustomError>>) -> Router {
+        let user_id = 1;
+
         let mut usecase = MockCreateBookUsecaseImpl::new();
         usecase
             .expect_create_book()
-            .with(predicate::eq(new_book.clone()))
-            .returning(move |_| ret.clone());
+            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
+            .returning(move |_, _| {
+                if ret.is_err() {
+                    Err(Box::new(
+                        Arc::try_unwrap(ret.clone().err().unwrap()).unwrap(),
+                    ))
+                } else {
+                    Ok(ret.clone().unwrap())
+                }
+            });
 
         let app = Router::new()
             .route(
                 "/api/v1/book",
                 post(create_book::<MockCreateBookUsecaseImpl>),
             )
-            .layer(Extension(Arc::new(usecase)));
+            .layer(Extension(Arc::new(usecase)))
+            .layer(Extension(user_id));
 
         app
     }
@@ -131,6 +145,8 @@ mod tests {
 
         let body_str =
             String::from_utf8(body_bytes.to_vec()).expect("failed to convert body to string");
+
+        println!("{}", &body_str);
 
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 

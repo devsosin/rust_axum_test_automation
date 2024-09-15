@@ -11,7 +11,7 @@ pub struct SaveBookRepoImpl {
 
 #[async_trait]
 pub trait SaveBookRepo: Send + Sync {
-    async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>>;
+    async fn save_book(&self, book: Book, user_id: i32) -> Result<i32, Box<CustomError>>;
 }
 
 impl SaveBookRepoImpl {
@@ -22,23 +22,68 @@ impl SaveBookRepoImpl {
 
 #[async_trait]
 impl SaveBookRepo for SaveBookRepoImpl {
-    async fn save_book(&self, book: Book) -> Result<i32, Arc<CustomError>> {
-        save_book(&self.pool, book).await
+    async fn save_book(&self, book: Book, user_id: i32) -> Result<i32, Box<CustomError>> {
+        save_book(&self.pool, book, user_id).await
     }
 }
 
-pub async fn save_book(pool: &PgPool, book: Book) -> Result<i32, Arc<CustomError>> {
-    // 한 유저 내에서는 같은 이름의 가계부 생성 불가
-    // type_id sub_query
+async fn check_duplicate(
+    pool: &PgPool,
+    book_name: &str,
+    user_id: i32,
+) -> Result<(), Box<CustomError>> {
+    let is_exist = sqlx::query_as::<_, (bool,)>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM tb_book AS b
+            JOIN tb_user_book_role AS br ON br.book_id = b.id
+            WHERE br.user_id = $1 AND b.name = $2
+        )"#,
+    )
+    .bind(user_id)
+    .bind(book_name)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        let err_msg = format!("Error(BookValid): {:?}", &e);
+        tracing::error!("{}", err_msg);
+
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+
+        Box::new(err)
+    })?
+    .0;
+
+    if is_exist {
+        Err(Box::new(CustomError::Duplicated("Book".to_string())))
+    } else {
+        Ok(())
+    }
+}
+
+pub async fn save_book(pool: &PgPool, book: Book, user_id: i32) -> Result<i32, Box<CustomError>> {
+    check_duplicate(pool, book.get_name(), user_id).await?;
+
     let row = sqlx::query(
         r#"
-        INSERT INTO tb_book (name, type_id)
-        VALUES ($1, $2)
-        RETURNING id;
-        "#,
+        WITH inserted_book AS (
+            INSERT INTO tb_book (name, type_id)
+            VALUES ($1, $2)
+            RETURNING id
+        )
+        INSERT INTO tb_user_book_role (user_id, book_id, role)
+            SELECT $3, inserted_book.id, 'owner'
+            FROM inserted_book
+        RETURNING book_id
+    "#,
     )
     .bind(book.get_name())
     .bind(book.get_type_id())
+    .bind(user_id)
     .fetch_one(pool)
     .await
     .map_err(|e| {
@@ -49,10 +94,10 @@ pub async fn save_book(pool: &PgPool, book: Book) -> Result<i32, Arc<CustomError
             sqlx::Error::Database(_) => CustomError::DatabaseError(e),
             _ => CustomError::Unexpected(e.into()),
         };
-        Arc::new(err)
+        Box::new(err)
     })?;
 
-    let id: i32 = row.get("id");
+    let id: i32 = row.get("book_id");
 
     Ok(id)
 }
@@ -88,11 +133,11 @@ mod tests {
     async fn check_create_book_success() {
         // Arange: 테스트 데이터베이스 설정, 데이터 준비
         let pool = create_connection_pool().await;
-
-        let book = Book::new(None, "새 가계부".to_string(), 1);
+        let user_id = 1; // test user
+        let book = Book::new("새 가계부".to_string(), 1);
 
         // Act: 메서드 호출을 통한 DB에 데이터 삽입
-        let result = save_book(&pool, book.clone()).await;
+        let result = save_book(&pool, book.clone(), user_id).await;
         let inserted_id = result.map_err(|e| println!("{:?}", e)).unwrap();
         // assert!(result.is_ok()); // 삽입 성공 여부 확인
 
@@ -112,10 +157,11 @@ mod tests {
     async fn check_create_book_fail_with_type() {
         // Arrange
         let pool = create_connection_pool().await;
-        let book = Book::new(None, "새 가계부".to_string(), -3);
+        let user_id = 1;
+        let book = Book::new("새 가계부22".to_string(), -3);
 
         // Act
-        let result = save_book(&pool, book).await;
+        let result = save_book(&pool, book, user_id).await;
 
         // Assert
         assert!(result.map_err(|e| println!("{:?}", e)).is_err());
@@ -123,7 +169,17 @@ mod tests {
 
     // 중복데이터 삽입 테스트케이스
     async fn check_create_book_failure() {
-        // user정보 같이 삽입 -> role 추가
-        // user-role table
+        let pool = create_connection_pool().await;
+        let user_id = 1;
+        let book = Book::new("중복 가계부 이름".to_string(), 1);
+        let _ = save_book(&pool, book, user_id).await.unwrap();
+
+        let duplicate_book = Book::new("중복 가계부 이름".to_string(), 1);
+
+        // Act
+        let result = save_book(&pool, duplicate_book, user_id).await;
+
+        // Assert
+        assert!(result.is_err());
     }
 }

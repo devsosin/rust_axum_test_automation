@@ -22,7 +22,7 @@ impl NewBook {
     }
 
     pub fn to_entity(&self) -> Book {
-        Book::new(None, self.name.to_owned(), self.type_id)
+        Book::new(self.name.to_owned(), self.type_id)
     }
 }
 

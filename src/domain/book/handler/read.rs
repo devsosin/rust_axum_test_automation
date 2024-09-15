@@ -66,9 +66,9 @@ mod tests {
 
         mock_usecase.expect_read_books().returning(|| {
             Ok(vec![
-                Book::new(Some(1), "가계부 1".to_string(), 1),
-                Book::new(Some(2), "가계부 2".to_string(), 2),
-                Book::new(Some(3), "가계부 3".to_string(), 1),
+                Book::new("가계부 1".to_string(), 1).id(1),
+                Book::new("가계부 2".to_string(), 2).id(2),
+                Book::new("가계부 3".to_string(), 1).id(3),
             ])
         });
 
@@ -96,9 +96,9 @@ mod tests {
 
         mock_usecase.expect_read_books().returning(|| {
             Ok(vec![
-                Book::new(Some(1), "가계부 1".to_string(), 1),
-                Book::new(Some(2), "가계부 2".to_string(), 2),
-                Book::new(Some(3), "가계부 3".to_string(), 1),
+                Book::new("가계부 1".to_string(), 1).id(1),
+                Book::new("가계부 2".to_string(), 2).id(2),
+                Book::new("가계부 3".to_string(), 1).id(3),
             ])
         });
 
@@ -167,7 +167,7 @@ mod tests {
         mock_usecase
             .expect_read_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::new(Some(i), format!("가계부 {}", i), 1)));
+            .returning(|i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
 
         let app = Router::new()
             .route(
@@ -198,7 +198,7 @@ mod tests {
         mock_usecase
             .expect_read_book()
             .with(predicate::eq(id))
-            .returning(|i| Ok(Book::new(Some(i), format!("가계부 {}", i), 1)));
+            .returning(|i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
 
         let app = Router::new()
             .route(
