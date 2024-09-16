@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::async_trait;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 use crate::{domain::book::entity::Book, global::errors::CustomError};
 
@@ -27,63 +27,53 @@ impl SaveBookRepo for SaveBookRepoImpl {
     }
 }
 
-async fn check_duplicate(
-    pool: &PgPool,
-    book_name: &str,
-    user_id: i32,
-) -> Result<(), Box<CustomError>> {
-    let is_exist = sqlx::query_as::<_, (bool,)>(
-        r#"
-        SELECT EXISTS (
-            SELECT 1
-            FROM tb_book AS b
-            JOIN tb_user_book_role AS br ON br.book_id = b.id
-            WHERE br.user_id = $1 AND b.name = $2
-        )"#,
-    )
-    .bind(user_id)
-    .bind(book_name)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| {
-        let err_msg = format!("Error(BookValid): {:?}", &e);
-        tracing::error!("{}", err_msg);
+#[derive(Debug, sqlx::FromRow)]
+struct InsertResult {
+    id: Option<i32>,
+    duplicated_check: bool,
+}
 
-        let err = match e {
-            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-            _ => CustomError::Unexpected(e.into()),
-        };
-
-        Box::new(err)
-    })?
-    .0;
-
-    if is_exist {
-        Err(Box::new(CustomError::Duplicated("Book".to_string())))
-    } else {
-        Ok(())
+impl InsertResult {
+    pub fn get_id(&self) -> Option<i32> {
+        self.id
+    }
+    pub fn get_duplicated(&self) -> bool {
+        self.duplicated_check
     }
 }
 
 pub async fn save_book(pool: &PgPool, book: Book, user_id: i32) -> Result<i32, Box<CustomError>> {
-    check_duplicate(pool, book.get_name(), user_id).await?;
-
-    let row = sqlx::query(
+    let row = sqlx::query_as::<_, InsertResult>(
         r#"
-        WITH inserted_book AS (
+        WITH DuplicateCheck AS (
+            SELECT EXISTS (
+                SELECT 1
+                FROM tb_book AS b
+                JOIN tb_user_book_role AS br ON br.book_id = b.id
+                WHERE br.user_id = $1 AND b.name = $2
+            ) AS is_duplicate
+        ),
+        InsertBook AS (
             INSERT INTO tb_book (name, type_id)
-            VALUES ($1, $2)
+                SELECT $2, $3
+                    FROM DuplicateCheck
+                    WHERE is_duplicate = false
             RETURNING id
+        ),
+        InsertRole AS (
+            INSERT INTO tb_user_book_role (user_id, book_id, role)
+                SELECT $1, id, 'owner'
+                    FROM InsertBook
+                    WHERE id IS NOT NULL
         )
-        INSERT INTO tb_user_book_role (user_id, book_id, role)
-            SELECT $3, inserted_book.id, 'owner'
-            FROM inserted_book
-        RETURNING book_id
+        SELECT 
+            (SELECT id FROM InsertBook) AS id,
+            (SELECT is_duplicate FROM DuplicateCheck) AS duplicated_check;
     "#,
     )
+    .bind(user_id)
     .bind(book.get_name())
     .bind(book.get_type_id())
-    .bind(user_id)
     .fetch_one(pool)
     .await
     .map_err(|e| {
@@ -91,14 +81,18 @@ pub async fn save_book(pool: &PgPool, book: Book, user_id: i32) -> Result<i32, B
         tracing::error!("{}", err_msg);
 
         let err = match e {
+            // 무결성 제약은 여기에 속함 DatabaseError
             sqlx::Error::Database(_) => CustomError::DatabaseError(e),
             _ => CustomError::Unexpected(e.into()),
         };
         Box::new(err)
     })?;
 
-    let id: i32 = row.get("book_id");
+    if row.get_duplicated() {
+        return Err(Box::new(CustomError::Duplicated("Book".to_string())));
+    }
 
+    let id: i32 = row.get_id().unwrap();
     Ok(id)
 }
 
@@ -111,6 +105,7 @@ mod tests {
     use crate::config::database::create_connection_pool;
     use crate::domain::book::entity::Book;
     use crate::domain::book::repository::save::save_book;
+    use crate::global::errors::CustomError;
 
     #[tokio::test]
     async fn check_database_connectivity() {
@@ -154,7 +149,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_create_book_fail_with_type() {
+    async fn check_no_type() {
         // Arrange
         let pool = create_connection_pool().await;
         let user_id = 1;
@@ -164,11 +159,17 @@ mod tests {
         let result = save_book(&pool, book, user_id).await;
 
         // Assert
-        assert!(result.map_err(|e| println!("{:?}", e)).is_err());
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::DatabaseError(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 
     // 중복데이터 삽입 테스트케이스
-    async fn check_create_book_failure() {
+    #[tokio::test]
+    async fn check_duplicate() {
         let pool = create_connection_pool().await;
         let user_id = 1;
         let book = Book::new("중복 가계부 이름".to_string(), 1);
@@ -180,6 +181,11 @@ mod tests {
         let result = save_book(&pool, duplicate_book, user_id).await;
 
         // Assert
-        assert!(result.is_err());
+        assert!(result.as_ref().is_err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::Duplicated(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 }

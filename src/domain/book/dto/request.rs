@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::domain::book::entity::Book;
+use crate::domain::book::entity::{Book, BookUpdate};
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Serialize)]
 pub struct NewBook {
@@ -28,15 +28,27 @@ impl NewBook {
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Serialize)]
 pub struct EditBook {
+    book_id: Option<i32>,
     name: String,
 }
 
 impl EditBook {
     pub fn new(name: String) -> Self {
-        Self { name }
+        Self {
+            book_id: None,
+            name,
+        }
     }
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+    pub fn id(mut self, id: i32) -> Self {
+        self.book_id = Some(id);
+        self
+    }
+
+    pub fn to_entity(&self, user_id: i32) -> BookUpdate {
+        BookUpdate::new(user_id, self.book_id.unwrap(), self.name.to_string())
     }
 }

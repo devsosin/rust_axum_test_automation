@@ -32,24 +32,20 @@ impl GetBookTypeRepo for GetBookTypeRepoImpl {
 }
 
 async fn get_book_types(pool: &PgPool) -> Result<Vec<BookType>, Arc<CustomError>> {
-    let rows: Vec<BookType> = sqlx::query_as::<_, BookType>(
-        r#"
-    SELECT * FROM tb_book_type
-    "#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| {
-        let err_msg = format!("Error(GetBookTypes): {:?}", &e);
-        tracing::error!("{}", err_msg);
+    let rows: Vec<BookType> = sqlx::query_as::<_, BookType>(r"SELECT * FROM tb_book_type")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Error(GetBookTypes): {:?}", &e);
+            tracing::error!("{}", err_msg);
 
-        let err = match e {
-            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-            sqlx::Error::RowNotFound => CustomError::NotFound("Book Type".to_string()),
-            _ => CustomError::Unexpected(e.into()),
-        };
-        Arc::new(err)
-    })?;
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                sqlx::Error::RowNotFound => CustomError::NotFound("Book Type".to_string()),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
+        })?;
 
     Ok(rows)
 }

@@ -60,6 +60,33 @@ impl BookType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BookUpdate {
+    user_id: i32,
+    book_id: i32,
+    name: String,
+}
+
+impl BookUpdate {
+    pub fn new(user_id: i32, book_id: i32, name: String) -> Self {
+        Self {
+            user_id,
+            book_id,
+            name,
+        }
+    }
+
+    pub fn get_user_id(&self) -> i32 {
+        self.user_id
+    }
+    pub fn get_book_id(&self) -> i32 {
+        self.book_id
+    }
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+}
+
 pub struct BookRole {
     user_id: i32,
     book_id: i32,

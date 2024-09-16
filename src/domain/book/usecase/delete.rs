@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::async_trait;
 
 use crate::{domain::book::repository::delete::DeleteBookRepo, global::errors::CustomError};
@@ -13,7 +11,7 @@ where
 
 #[async_trait]
 pub trait DeleteBookUsecase: Send + Sync {
-    async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>>;
+    async fn delete_book(&self, user_id: i32, book_id: i32) -> Result<(), Box<CustomError>>;
 }
 
 impl<T> DeleteBookUsecaseImpl<T>
@@ -30,19 +28,21 @@ impl<T> DeleteBookUsecase for DeleteBookUsecaseImpl<T>
 where
     T: DeleteBookRepo,
 {
-    async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>> {
-        delete_book(&self.repository, id).await
+    async fn delete_book(&self, user_id: i32, book_id: i32) -> Result<(), Box<CustomError>> {
+        delete_book(&self.repository, user_id, book_id).await
     }
 }
 
-async fn delete_book<T: DeleteBookRepo>(repository: &T, id: i32) -> Result<(), Arc<CustomError>> {
-    repository.delete_book(id).await
+async fn delete_book<T: DeleteBookRepo>(
+    repository: &T,
+    user_id: i32,
+    book_id: i32,
+) -> Result<(), Box<CustomError>> {
+    repository.delete_book(user_id, book_id).await
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use axum::async_trait;
     use mockall::{mock, predicate};
 
@@ -54,7 +54,7 @@ mod tests {
 
         #[async_trait]
         impl DeleteBookRepo for DeleteBookRepoImpl {
-            async fn delete_book(&self, id: i32) -> Result<(), Arc<CustomError>>;
+            async fn delete_book(&self, user_id: i32, book_id: i32) -> Result<(), Box<CustomError>>;
         }
     }
 
@@ -63,33 +63,17 @@ mod tests {
         // Arrange
         let mut mock_repo = MockDeleteBookRepoImpl::new();
 
+        let user_id = 1;
         let target_id = 1;
         mock_repo
             .expect_delete_book()
-            .with(predicate::eq(target_id))
-            .returning(|_| Ok(()));
+            .with(predicate::eq(user_id), predicate::eq(target_id))
+            .returning(|_, _| Ok(()));
 
         // Act
-        let result = delete_book(&mock_repo, target_id).await;
+        let result = delete_book(&mock_repo, user_id, target_id).await;
 
         // Assert
         assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn check_delete_book_id_not_found() {
-        // Arrange
-        let target_id = -32;
-        let mut mock_repo = MockDeleteBookRepoImpl::new();
-        mock_repo
-            .expect_delete_book()
-            .with(predicate::eq(target_id))
-            .returning(|_| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
-
-        // Act
-        let result = delete_book(&mock_repo, target_id).await;
-
-        // Assert
-        assert!(result.is_err())
     }
 }

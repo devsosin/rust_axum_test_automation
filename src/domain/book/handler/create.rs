@@ -3,7 +3,10 @@ use std::sync::Arc;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use serde_json::json;
 
-use crate::domain::book::{dto::request::NewBook, usecase::create::CreateBookUsecase};
+use crate::{
+    domain::book::{dto::request::NewBook, usecase::create::CreateBookUsecase},
+    global::errors::CustomError,
+};
 
 pub async fn create_book<T>(
     Extension(usecase): Extension<Arc<T>>,
@@ -17,6 +20,9 @@ where
     tracing::info!("Create Book : {}", new_book.get_name());
 
     // type_id check 1 ~ 3
+    if !(0 < new_book.get_type_id() && new_book.get_type_id() <= 3) {
+        return CustomError::ValidationError("BookType".to_string()).into_response();
+    }
 
     match usecase.create_book(&new_book, user_id).await {
         Ok(id) => {
@@ -78,29 +84,15 @@ mod tests {
         req
     }
 
-    fn create_app(new_book: &NewBook, ret: Result<i32, Arc<CustomError>>) -> Router {
+    fn create_app(mock_usecase: MockCreateBookUsecaseImpl) -> Router {
         let user_id = 1;
-
-        let mut usecase = MockCreateBookUsecaseImpl::new();
-        usecase
-            .expect_create_book()
-            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
-            .returning(move |_, _| {
-                if ret.is_err() {
-                    Err(Box::new(
-                        Arc::try_unwrap(ret.clone().err().unwrap()).unwrap(),
-                    ))
-                } else {
-                    Ok(ret.clone().unwrap())
-                }
-            });
 
         let app = Router::new()
             .route(
                 "/api/v1/book",
                 post(create_book::<MockCreateBookUsecaseImpl>),
             )
-            .layer(Extension(Arc::new(usecase)))
+            .layer(Extension(Arc::new(mock_usecase)))
             .layer(Extension(user_id));
 
         app
@@ -112,7 +104,16 @@ mod tests {
         let new_book = NewBook::new("테스트 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
-        let app = create_app(&new_book, Ok(1));
+        let user_id = 1;
+        let id = 1;
+
+        let mut usecase = MockCreateBookUsecaseImpl::new();
+        usecase
+            .expect_create_book()
+            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
+            .returning(move |_, _| Ok(id));
+
+        let app = create_app(usecase);
         let req = create_req(json_body);
 
         // Act
@@ -128,7 +129,16 @@ mod tests {
         let new_book = NewBook::new("테스트 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
 
-        let app = create_app(&new_book, Ok(1));
+        let user_id = 1;
+        let id = 1;
+
+        let mut usecase = MockCreateBookUsecaseImpl::new();
+        usecase
+            .expect_create_book()
+            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
+            .returning(move |_, _| Ok(id));
+
+        let app = create_app(usecase);
         let req = create_req(json_body);
 
         // Act
@@ -158,28 +168,41 @@ mod tests {
         let new_book = NewBook::new("테스트 가계부".to_string(), -3);
         let json_body = to_string(&new_book).unwrap();
 
-        let app = create_app(
-            &new_book,
-            Err(Arc::new(CustomError::NotFound("Category".to_string()))),
-        );
+        let user_id = 1;
+
+        let mut usecase = MockCreateBookUsecaseImpl::new();
+        usecase
+            .expect_create_book()
+            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
+            .returning(move |_, _| {
+                Err(Box::new(CustomError::ValidationError(
+                    "BookType".to_string(),
+                )))
+            });
+
+        let app = create_app(usecase);
         let req = create_req(json_body);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
 
         // Assert
-        assert_eq!(response.status(), 404)
+        assert_eq!(response.status(), 400)
     }
 
     #[tokio::test]
     async fn check_create_book_failure_duplicate() {
         let new_book = NewBook::new("중복 가계부".to_string(), 1);
         let json_body = to_string(&new_book).unwrap();
+        let user_id = 1;
 
-        let app = create_app(
-            &new_book,
-            Err(Arc::new(CustomError::Duplicated("Book".to_string()))),
-        );
+        let mut usecase = MockCreateBookUsecaseImpl::new();
+        usecase
+            .expect_create_book()
+            .with(predicate::eq(new_book.clone()), predicate::eq(user_id))
+            .returning(move |_, _| Err(Box::new(CustomError::Duplicated("Book".to_string()))));
+
+        let app = create_app(usecase);
         let req = create_req(json_body);
 
         // Act

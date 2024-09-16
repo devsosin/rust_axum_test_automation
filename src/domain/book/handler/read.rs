@@ -6,11 +6,14 @@ use serde_json::json;
 
 use crate::domain::book::usecase::read::ReadBookUsecase;
 
-pub async fn read_books<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
+pub async fn read_books<T>(
+    Extension(usecase): Extension<Arc<T>>,
+    Extension(user_id): Extension<i32>,
+) -> impl IntoResponse
 where
     T: ReadBookUsecase,
 {
-    match usecase.read_books().await {
+    match usecase.read_books(user_id).await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -18,12 +21,13 @@ where
 
 pub async fn read_book<T>(
     Extension(usecase): Extension<Arc<T>>,
+    Extension(user_id): Extension<i32>,
     Path(book_id): Path<i32>,
 ) -> impl IntoResponse
 where
     T: ReadBookUsecase,
 {
-    match usecase.read_book(book_id).await {
+    match usecase.read_book(user_id, book_id).await {
         Ok(result) => (StatusCode::OK, Json(json!(result))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -54,33 +58,55 @@ mod tests {
 
         #[async_trait]
         impl ReadBookUsecase for ReadBookUsecaseImpl {
-            async fn read_books(&self) -> Result<Vec<Book>, Arc<CustomError>>;
-            async fn read_book(&self, id: i32) -> Result<Book, Arc<CustomError>>;
+            async fn read_books(&self, user_id:i32) -> Result<Vec<Book>, Box<CustomError>>;
+            async fn read_book(&self, user_id: i32, book_id: i32) -> Result<Book, Box<CustomError>>;
         }
+    }
+
+    fn _create_app(user_id: i32, usecase: MockReadBookUsecaseImpl) -> Router {
+        Router::new()
+            .route("/api/v1/book", get(read_books::<MockReadBookUsecaseImpl>))
+            .route(
+                "/api/v1/book/:book_id",
+                get(read_book::<MockReadBookUsecaseImpl>),
+            )
+            .layer(Extension(Arc::new(usecase)))
+            .layer(Extension(user_id))
+    }
+
+    fn _create_books_req() -> Request {
+        Request::builder()
+            .method("GET")
+            .uri("/api/v1/book")
+            .body(Body::empty())
+            .unwrap()
+    }
+    fn _create_book_req(book_id: i32) -> Request {
+        Request::builder()
+            .method("GET")
+            .uri(format!("/api/v1/book/{}", book_id))
+            .body(Body::empty())
+            .unwrap()
     }
 
     #[tokio::test]
     async fn check_read_books_status() {
         // Arrange
+        let user_id = 1;
+        let books = vec![
+            Book::new("가계부 1".to_string(), 1).id(1),
+            Book::new("가계부 2".to_string(), 2).id(2),
+            Book::new("가계부 3".to_string(), 1).id(3),
+        ];
+
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
+        mock_usecase
+            .expect_read_books()
+            .with(predicate::eq(user_id))
+            .returning(move |_| Ok(books.clone()));
 
-        mock_usecase.expect_read_books().returning(|| {
-            Ok(vec![
-                Book::new("가계부 1".to_string(), 1).id(1),
-                Book::new("가계부 2".to_string(), 2).id(2),
-                Book::new("가계부 3".to_string(), 1).id(3),
-            ])
-        });
-
-        let app = Router::new()
-            .route("/api/v1/book", get(read_books::<MockReadBookUsecaseImpl>))
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_books_req();
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -92,25 +118,22 @@ mod tests {
     #[tokio::test]
     async fn check_read_books_body() {
         // Arrange
+        let user_id = 1;
+        let books = vec![
+            Book::new("가계부 1".to_string(), 1).id(1),
+            Book::new("가계부 2".to_string(), 2).id(2),
+            Book::new("가계부 3".to_string(), 1).id(3),
+        ];
+        let ret_books = books.clone();
+
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
+        mock_usecase
+            .expect_read_books()
+            .with(predicate::eq(user_id))
+            .returning(move |_| Ok(ret_books.clone()));
 
-        mock_usecase.expect_read_books().returning(|| {
-            Ok(vec![
-                Book::new("가계부 1".to_string(), 1).id(1),
-                Book::new("가계부 2".to_string(), 2).id(2),
-                Book::new("가계부 3".to_string(), 1).id(3),
-            ])
-        });
-
-        let app: Router = Router::new()
-            .route("/api/v1/book", get(read_books::<MockReadBookUsecaseImpl>))
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_books_req();
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -129,27 +152,22 @@ mod tests {
 
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
-        assert_eq!(body_json[0]["name"], "가계부 1");
+        assert_eq!(body_json[0]["name"], books[0].get_name());
     }
 
     #[tokio::test]
     async fn check_read_books_not_found() {
         // Arrange
+        let user_id = -2;
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
 
         mock_usecase
             .expect_read_books()
-            .returning(|| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
+            .with(predicate::eq(user_id))
+            .returning(|_| Err(Box::new(CustomError::NotFound("Book".to_string()))));
 
-        let app: Router = Router::new()
-            .route("/api/v1/book", get(read_books::<MockReadBookUsecaseImpl>))
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_books_req();
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -161,26 +179,17 @@ mod tests {
     #[tokio::test]
     async fn check_read_book_status() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let book_id = 1;
 
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
         mock_usecase
             .expect_read_book()
-            .with(predicate::eq(id))
-            .returning(|i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
+            .with(predicate::eq(user_id), predicate::eq(book_id))
+            .returning(|_, i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/book/:book_id",
-                get(read_book::<MockReadBookUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book/1")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_book_req(book_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -192,26 +201,17 @@ mod tests {
     #[tokio::test]
     async fn check_read_book_body() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let book_id = 1;
 
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
         mock_usecase
             .expect_read_book()
-            .with(predicate::eq(id))
-            .returning(|i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
+            .with(predicate::eq(user_id), predicate::eq(book_id))
+            .returning(|_, i| Ok(Book::new(format!("가계부 {}", i), 1).id(i)));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/book/:book_id",
-                get(read_book::<MockReadBookUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book/1")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_book_req(book_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -230,33 +230,24 @@ mod tests {
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
         // Assert
-        assert_eq!(body_json["id"], id);
-        assert_eq!(body_json["name"], format!("가계부 {}", id));
+        assert_eq!(body_json["id"], book_id);
+        assert_eq!(body_json["name"], format!("가계부 {}", book_id));
     }
 
     #[tokio::test]
     async fn check_read_book_not_found() {
         // Arrange
-        let id = -32;
+        let user_id = -32;
+        let book_id = 5;
 
         let mut mock_usecase = MockReadBookUsecaseImpl::new();
         mock_usecase
             .expect_read_book()
-            .with(predicate::eq(id))
-            .returning(|_| Err(Arc::new(CustomError::NotFound("Book".to_string()))));
+            .with(predicate::eq(user_id), predicate::eq(book_id))
+            .returning(|_, _| Err(Box::new(CustomError::NotFound("Book".to_string()))));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/book/:book_id",
-                get(read_book::<MockReadBookUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/book/-32")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_book_req(book_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();

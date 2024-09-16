@@ -206,4 +206,9 @@ INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, create
         VALUES (1, 18, 15000, '감자탕', NOW(), NOW(), NULL);
 
 INSERT INTO tb_user(login_type, username, password, email) VALUES
-    ('email', 'test_user', 'test_password', 'test@test.test');
+    ('email', 'test_user', 'test_password', 'test@test.test'),
+    ('email', 'viewer_user', 'test_password', 'test22@test.test');
+
+INSERT INTO tb_user_book_role(book_id, user_id, role) VALUES
+    (1, 1, 'owner'),
+    (1, 2, 'viewer');
