@@ -16,7 +16,8 @@ pub struct UpdateRecordRepoImpl {
 pub trait UpdateRecordRepo: Send + Sync {
     async fn update_record(
         &self,
-        id: i64,
+        user_id: i32,
+        record_id: i64,
         edit_record: UpdateRecord,
     ) -> Result<(), Arc<CustomError>>;
 }
@@ -31,10 +32,11 @@ impl UpdateRecordRepoImpl {
 impl UpdateRecordRepo for UpdateRecordRepoImpl {
     async fn update_record(
         &self,
-        id: i64,
+        user_id: i32,
+        record_id: i64,
         edit_record: UpdateRecord,
     ) -> Result<(), Arc<CustomError>> {
-        update_record(&self.pool, id, edit_record).await
+        update_record(&self.pool, user_id, record_id, edit_record).await
     }
 }
 
@@ -45,10 +47,26 @@ fn make_query(index: &mut i32, field_name: &str) -> String {
 
 async fn update_record(
     pool: &PgPool,
-    id: i64,
+    user_id: i32,
+    record_id: i64,
     edit_record: UpdateRecord,
 ) -> Result<(), Arc<CustomError>> {
-    // check_validation -> usecase
+    // record exists
+    // authority checks
+    let mut query = r"
+        WITH RecordExists AS (
+        ),
+        AuthorityCheck AS (
+            SELECT book_id
+            FROM tb_user_book_role AS br
+            JOIN tb_book AS b ON b.id = br.book_id
+            JOIN tb_record AS r ON r.book_id = b.id
+            WHERE br.user_id = $1 AND r.record_id = $2 AND br.role != 'viewer'
+        ),
+        UpdateRecord AS (
+            UPDATE tb_record SET
+        )"
+    .to_string();
 
     let mut query: String = "UPDATE tb_record SET ".to_string();
     let mut index = 0;
@@ -94,7 +112,7 @@ async fn update_record(
     query.push_str("updated_at = NOW()");
     query.push_str(&format!(" WHERE id = ${}", index + 1));
 
-    let mut query_builder = sqlx::query(&query);
+    let mut query_builder = sqlx::query(&query).bind(user_id);
 
     match edit_record.get_sub_category_id() {
         FieldUpdate::Set(v) => {
@@ -130,16 +148,20 @@ async fn update_record(
         FieldUpdate::NoChange => {}
     }
 
-    let result = query_builder.bind(id).execute(pool).await.map_err(|e| {
-        let err_msg = format!("Update(Record {}): {}", id, e);
-        tracing::error!("{}", err_msg);
+    let result = query_builder
+        .bind(record_id)
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Update(Record {}): {}", record_id, e);
+            tracing::error!("{}", err_msg);
 
-        let err = match e {
-            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-            _ => CustomError::Unexpected(e.into()),
-        };
-        Arc::new(err)
-    })?;
+            let err = match e {
+                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+                _ => CustomError::Unexpected(e.into()),
+            };
+            Arc::new(err)
+        })?;
 
     if result.rows_affected() == 0 {
         return Err(Arc::new(CustomError::NotFound("Record".to_string())));
@@ -175,6 +197,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -185,7 +208,7 @@ mod tests {
 
         let change_amount: i32 = 15000;
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(change_amount),
@@ -195,7 +218,7 @@ mod tests {
         );
 
         // Act
-        let result = update_record(&pool, new_id, edit_record).await;
+        let result = update_record(&pool, user_id, new_id, edit_record).await;
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
@@ -210,6 +233,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -218,7 +242,7 @@ mod tests {
             None,
         );
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::NoChange,
@@ -228,18 +252,19 @@ mod tests {
         );
 
         // Act
-        let result = update_record(&pool, new_id, edit_record).await;
+        let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
         assert!(result.is_err())
     }
 
     #[tokio::test]
-    async fn check_id_not_found() {
+    async fn check_record_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
 
-        let id = -32;
+        let user_id = 1;
+        let no_id = -32;
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(15000),
@@ -249,7 +274,7 @@ mod tests {
         );
 
         // Act
-        let result = update_record(&pool, id, edit_record).await;
+        let result = update_record(&pool, user_id, no_id, edit_record).await;
 
         // Assert
         assert!(result.is_err())
@@ -260,6 +285,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -268,7 +294,7 @@ mod tests {
             None,
         );
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
         let edit_record = UpdateRecord::new(
             FieldUpdate::Set(-32),
             FieldUpdate::NoChange,
@@ -278,7 +304,7 @@ mod tests {
         );
 
         // Act
-        let result = update_record(&pool, new_id, edit_record).await;
+        let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
         assert!(result.is_err())
@@ -289,6 +315,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -297,7 +324,7 @@ mod tests {
             None,
         );
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(15000),
@@ -307,7 +334,7 @@ mod tests {
         );
 
         // Act
-        let result = update_record(&pool, new_id, edit_record).await;
+        let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
         assert!(result.is_err())
@@ -318,6 +345,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -326,7 +354,7 @@ mod tests {
             None,
         );
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(15000),
@@ -337,7 +365,7 @@ mod tests {
         let last_time = Utc::now().naive_utc();
 
         // Act
-        let result = update_record(&pool, new_id, edit_record).await;
+        let result = update_record(&pool, user_id, new_id, edit_record).await;
         assert!(result.map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert

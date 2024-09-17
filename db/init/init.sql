@@ -43,7 +43,9 @@ CREATE TABLE tb_user_book_role(
     book_id INT NOT NULL,
     role VARCHAR(8),
 
-    PRIMARY KEY (user_id, book_id)
+    PRIMARY KEY (user_id, book_id),
+    FOREIGN KEY (user_id) REFERENCES tb_user(id),
+    FOREIGN KEY (book_id) REFERENCES tb_book(id)
 );
 
 CREATE TABLE tb_base_category(
@@ -122,7 +124,9 @@ CREATE TABLE tb_record_connect(
     record_id BIGINT,
     connect_id INT,
 
-    PRIMARY KEY (record_id, connect_id)
+    PRIMARY KEY (record_id, connect_id),
+    FOREIGN KEY (record_id) REFERENCES tb_record(id),
+    FOREIGN KEY (connect_id) REFERENCES tb_connect(id)
 );
 
 INSERT INTO tb_book_type(name) VALUES

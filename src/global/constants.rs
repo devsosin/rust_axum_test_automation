@@ -7,21 +7,21 @@ pub enum FieldUpdate<T> {
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct UpdateResult {
-    exists_check: bool,
-    authorized_check: bool,
-    duplicated_check: bool,
+    is_exist: bool,
+    is_authorized: bool,
+    is_duplicated: bool,
     update_count: i64,
 }
 
 impl UpdateResult {
     pub fn get_exist(&self) -> bool {
-        self.exists_check
+        self.is_exist
     }
     pub fn get_authorized(&self) -> bool {
-        self.authorized_check
+        self.is_authorized
     }
     pub fn get_duplicated(&self) -> bool {
-        self.duplicated_check
+        self.is_duplicated
     }
     pub fn get_count(&self) -> i64 {
         self.update_count
@@ -30,17 +30,17 @@ impl UpdateResult {
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct DeleteResult {
-    exists_check: bool,
-    authorized_check: bool,
+    is_exist: bool,
+    is_authorized: bool,
     delete_count: i64,
 }
 
 impl DeleteResult {
     pub fn get_exist(&self) -> bool {
-        self.exists_check
+        self.is_exist
     }
     pub fn get_authorized(&self) -> bool {
-        self.authorized_check
+        self.is_authorized
     }
     pub fn get_count(&self) -> i64 {
         self.delete_count

@@ -30,7 +30,7 @@ impl SaveBookRepo for SaveBookRepoImpl {
 #[derive(Debug, sqlx::FromRow)]
 struct InsertResult {
     id: Option<i32>,
-    duplicated_check: bool,
+    is_duplicated: bool,
 }
 
 impl InsertResult {
@@ -38,7 +38,7 @@ impl InsertResult {
         self.id
     }
     pub fn get_duplicated(&self) -> bool {
-        self.duplicated_check
+        self.is_duplicated
     }
 }
 
@@ -68,7 +68,7 @@ pub async fn save_book(pool: &PgPool, book: Book, user_id: i32) -> Result<i32, B
         )
         SELECT 
             (SELECT id FROM InsertBook) AS id,
-            (SELECT is_duplicate FROM DuplicateCheck) AS duplicated_check;
+            (SELECT is_duplicate FROM DuplicateCheck) AS is_duplicated;
     "#,
     )
     .bind(user_id)

@@ -61,9 +61,9 @@ pub async fn update_book(pool: &PgPool, book_update: BookUpdate) -> Result<(), B
             RETURNING id
         )
         SELECT 
-            EXISTS (SELECT 1 FROM BookExists) AS exists_check,
-            EXISTS (SELECT 1 FROM AuthorityCheck) AS authorized_check,
-            (SELECT is_duplicate FROM DuplicateCheck) AS duplicated_check,
+            EXISTS (SELECT 1 FROM BookExists) AS is_exist,
+            EXISTS (SELECT 1 FROM AuthorityCheck) AS is_authorized,
+            (SELECT is_duplicate FROM DuplicateCheck) AS is_duplicated,
             (SELECT COUNT(*) FROM UpdateBook) AS update_count;
     ",
     )
@@ -138,7 +138,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_book_update_id_not_found() {
+    async fn check_book__not_found() {
         // Arrange
         let pool = create_connection_pool().await;
 
@@ -161,7 +161,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_book_update_duplicate_name() {
+    async fn check_duplicate_name() {
         // Arrange
         let pool = create_connection_pool().await;
         let user_id = 1;
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_user_has_no_role() {
+    async fn check_no_role() {
         // Arrange
         // ref) init.sql
         let pool = create_connection_pool().await;

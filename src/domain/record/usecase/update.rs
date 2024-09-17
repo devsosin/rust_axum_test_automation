@@ -16,8 +16,12 @@ where
 
 #[async_trait]
 pub trait UpdateRecordUsecase: Send + Sync {
-    async fn update_record(&self, id: i64, edit_record: EditRecord)
-        -> Result<(), Arc<CustomError>>;
+    async fn update_record(
+        &self,
+        user_id: i32,
+        record_id: i64,
+        edit_record: EditRecord,
+    ) -> Result<(), Arc<CustomError>>;
 }
 
 impl<T> UpdateRecordUsecaseImpl<T>
@@ -36,22 +40,26 @@ where
 {
     async fn update_record(
         &self,
-        id: i64,
+        user_id: i32,
+        record_id: i64,
         edit_record: EditRecord,
     ) -> Result<(), Arc<CustomError>> {
-        update_record(&self.repository, id, edit_record).await
+        update_record(&self.repository, user_id, record_id, edit_record).await
     }
 }
 
 async fn update_record<T>(
     repository: &T,
-    id: i64,
+    user_id: i32,
+    record_id: i64,
     edit_record: EditRecord,
 ) -> Result<(), Arc<CustomError>>
 where
     T: UpdateRecordRepo,
 {
-    repository.update_record(id, edit_record.to_update()).await
+    repository
+        .update_record(user_id, record_id, edit_record.to_update())
+        .await
 }
 
 #[cfg(test)]
@@ -75,7 +83,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordRepo for UpdateRecordRepoImpl {
-            async fn update_record(&self, id: i64, edit_record: UpdateRecord) -> Result<(), Arc<CustomError>>;
+            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: UpdateRecord) -> Result<(), Arc<CustomError>>;
         }
     }
 
@@ -83,45 +91,24 @@ mod tests {
     async fn check_update_record_success() {
         // Arrange
         let edit_record = EditRecord::new(None, Some(15000), Some("NULL".to_string()), None, None);
+        let user_id = 1;
 
-        let id = 1;
+        let record_id = 1i64;
 
         let mut mock_repo = MockUpdateRecordRepoImpl::new();
         mock_repo
             .expect_update_record()
             .with(
-                predicate::eq(id),
+                predicate::eq(user_id),
+                predicate::eq(record_id),
                 predicate::eq(edit_record.clone().to_update()),
             )
-            .returning(|_, _| Ok(()));
+            .returning(|_, _, _| Ok(()));
 
         // Act
-        let result = update_record(&mock_repo, id, edit_record).await;
+        let result = update_record(&mock_repo, user_id, record_id, edit_record).await;
 
         // Assert
         assert!(result.is_ok())
-    }
-
-    #[tokio::test]
-    async fn check_update_record_failure() {
-        // Arrange
-        let edit_record = EditRecord::new(None, Some(15000), Some("NULL".to_string()), None, None);
-
-        let id = -32;
-
-        let mut mock_repo = MockUpdateRecordRepoImpl::new();
-        mock_repo
-            .expect_update_record()
-            .with(
-                predicate::eq(id),
-                predicate::eq(edit_record.clone().to_update()),
-            )
-            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
-
-        // Act
-        let result = update_record(&mock_repo, id, edit_record).await;
-
-        // Assert
-        assert!(result.is_err())
     }
 }

@@ -55,8 +55,8 @@ async fn delete_book(pool: &PgPool, user_id: i32, book_id: i32) -> Result<(), Bo
             RETURNING id
         )
         SELECT 
-            EXISTS (SELECT 1 FROM BookExists) AS exists_check,
-            (SELECT is_authorized FROM AuthorityCheck) AS authorized_check,
+            EXISTS (SELECT 1 FROM BookExists) AS is_exist,
+            (SELECT is_authorized FROM AuthorityCheck) AS is_authorized,
             (SELECT COUNT(*) FROM DeleteBook) AS delete_count;
         ",
     )

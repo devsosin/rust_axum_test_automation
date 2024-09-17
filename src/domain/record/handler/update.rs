@@ -8,13 +8,14 @@ use crate::domain::record::{dto::request::EditRecord, usecase::update::UpdateRec
 
 pub async fn update_record<T>(
     Extension(usecase): Extension<Arc<T>>,
-    Path(id): Path<i64>,
+    Extension(user_id): Extension<i32>,
+    Path(record_id): Path<i64>,
     Json(edit_record): Json<EditRecord>,
 ) -> impl IntoResponse
 where
     T: UpdateRecordUsecase,
 {
-    match usecase.update_record(id, edit_record).await {
+    match usecase.update_record(user_id, record_id, edit_record).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -42,35 +43,48 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordUsecase for UpdateRecordUsecaseImpl {
-            async fn update_record(&self, id: i64, edit_record: EditRecord) -> Result<(), Arc<CustomError>>;
+            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: EditRecord) -> Result<(), Arc<CustomError>>;
         }
+    }
+
+    fn _create_app(user_id: i32, mock_usecase: MockUpdateRecordUsecaseImpl) -> Router {
+        Router::new()
+            .route(
+                "/api/v1/record/:record_id",
+                patch(update_record::<MockUpdateRecordUsecaseImpl>),
+            )
+            .layer(Extension(Arc::new(mock_usecase)))
+            .layer(Extension(user_id))
+    }
+
+    fn _create_req(record_id: i64, edit_record: &EditRecord) -> Request {
+        Request::builder()
+            .method("PATCH")
+            .uri(format!("/api/v1/record/{}", record_id))
+            .header("content-type", "application/json")
+            .body(Body::from(to_string(edit_record).unwrap()))
+            .unwrap()
     }
 
     #[tokio::test]
     async fn check_update_record_status() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let record_id = 1;
         let edit_record = EditRecord::new(None, Some(15000), Some("NULL".to_string()), None, None);
 
         let mut mock_usecase = MockUpdateRecordUsecaseImpl::new();
         mock_usecase
             .expect_update_record()
-            .with(predicate::eq(id), predicate::eq(edit_record.clone()))
-            .returning(|_, _| Ok(()));
-
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                patch(update_record::<MockUpdateRecordUsecaseImpl>),
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(record_id),
+                predicate::eq(edit_record.clone()),
             )
-            .layer(Extension(Arc::new(mock_usecase)));
+            .returning(|_, _, _| Ok(()));
 
-        let req = Request::builder()
-            .method("PATCH")
-            .uri(format!("/api/v1/record/{}", id))
-            .header("content-type", "application/json")
-            .body(Body::from(to_string(&edit_record).unwrap()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id, &edit_record);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -82,28 +96,22 @@ mod tests {
     #[tokio::test]
     async fn check_update_record_body() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let record_id = 1;
         let edit_record = EditRecord::new(None, Some(15000), Some("NULL".to_string()), None, None);
 
         let mut mock_usecase = MockUpdateRecordUsecaseImpl::new();
         mock_usecase
             .expect_update_record()
-            .with(predicate::eq(id), predicate::eq(edit_record.clone()))
-            .returning(|_, _| Ok(()));
-
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                patch(update_record::<MockUpdateRecordUsecaseImpl>),
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(record_id),
+                predicate::eq(edit_record.clone()),
             )
-            .layer(Extension(Arc::new(mock_usecase)));
+            .returning(|_, _, _| Ok(()));
 
-        let req = Request::builder()
-            .method("PATCH")
-            .uri(format!("/api/v1/record/{}", id))
-            .header("content-type", "application/json")
-            .body(Body::from(to_string(&edit_record).unwrap()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id, &edit_record);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -127,29 +135,24 @@ mod tests {
 
     #[tokio::test]
     async fn check_update_record_not_found() {
+        // Unauthorized
         // Arrange
-        let id = -32;
+        let user_id = 1;
+        let no_id = -32;
         let edit_record = EditRecord::new(None, Some(15000), Some("NULL".to_string()), None, None);
 
         let mut mock_usecase = MockUpdateRecordUsecaseImpl::new();
         mock_usecase
             .expect_update_record()
-            .with(predicate::eq(id), predicate::eq(edit_record.clone()))
-            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
-
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                patch(update_record::<MockUpdateRecordUsecaseImpl>),
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(no_id),
+                predicate::eq(edit_record.clone()),
             )
-            .layer(Extension(Arc::new(mock_usecase)));
+            .returning(|_, _, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
-        let req = Request::builder()
-            .method("PATCH")
-            .uri(format!("/api/v1/record/{}", id))
-            .header("content-type", "application/json")
-            .body(Body::from(to_string(&edit_record).unwrap()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(no_id, &edit_record);
 
         // Act
         let response = app.oneshot(req).await.unwrap();

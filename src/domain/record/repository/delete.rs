@@ -78,6 +78,7 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
         let record = Record::new(
             1,
             18, // 식비
@@ -86,7 +87,7 @@ mod tests {
             None,
         );
 
-        let new_id = save_record(&pool, record, None).await.unwrap();
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
 
         // Act
         let result = delete_record(&pool, new_id).await;
