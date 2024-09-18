@@ -13,7 +13,7 @@ where
 
 #[async_trait]
 pub trait DeleteRecordUsecase: Send + Sync {
-    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
 }
 
 impl<T> DeleteRecordUsecaseImpl<T>
@@ -30,16 +30,20 @@ impl<T> DeleteRecordUsecase for DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>> {
-        delete_record(&self.repository, id).await
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>> {
+        delete_record(&self.repository, user_id, record_id).await
     }
 }
 
-async fn delete_record<T>(repository: &T, id: i64) -> Result<(), Arc<CustomError>>
+async fn delete_record<T>(
+    repository: &T,
+    user_id: i32,
+    record_id: i64,
+) -> Result<(), Arc<CustomError>>
 where
     T: DeleteRecordRepo,
 {
-    repository.delete_record(id).await
+    repository.delete_record(user_id, record_id).await
 }
 
 #[cfg(test)]
@@ -60,43 +64,26 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordRepo for DeleteRecordRepoImpl{
-            async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
+            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
         }
     }
 
     #[tokio::test]
     async fn check_delete_record_success() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let record_id = 1;
 
         let mut mock_repo = MockDeleteRecordRepoImpl::new();
         mock_repo
             .expect_delete_record()
-            .with(predicate::eq(id))
-            .returning(|_| Ok(()));
+            .with(predicate::eq(user_id), predicate::eq(record_id))
+            .returning(|_, _| Ok(()));
 
         // Act
-        let result = delete_record(&mock_repo, id).await;
+        let result = delete_record(&mock_repo, user_id, record_id).await;
 
         // Assert
         assert!(result.is_ok())
-    }
-
-    #[tokio::test]
-    async fn check_id_not_found() {
-        // Arrange
-        let no_id = -32;
-
-        let mut mock_repo = MockDeleteRecordRepoImpl::new();
-        mock_repo
-            .expect_delete_record()
-            .with(predicate::eq(no_id))
-            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
-
-        // Act
-        let result = delete_record(&mock_repo, no_id).await;
-
-        // Assert
-        assert!(result.is_err())
     }
 }

@@ -11,8 +11,8 @@ pub struct GetRecordRepoImpl {
 
 #[async_trait]
 pub trait GetRecordRepo: Send + Sync {
-    async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>>;
-    async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>>;
+    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>>;
+    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>>;
 }
 
 impl GetRecordRepoImpl {
@@ -23,48 +23,68 @@ impl GetRecordRepoImpl {
 
 #[async_trait]
 impl GetRecordRepo for GetRecordRepoImpl {
-    async fn get_list(&self) -> Result<Vec<Record>, Arc<CustomError>> {
-        get_list(&self.pool).await
+    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>> {
+        get_list(&self.pool, user_id).await
     }
-    async fn get_by_id(&self, id: i64) -> Result<Record, Arc<CustomError>> {
-        get_by_id(&self.pool, id).await
+    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>> {
+        get_by_id(&self.pool, user_id, record_id).await
     }
 }
 
-async fn get_list(pool: &PgPool) -> Result<Vec<Record>, Arc<CustomError>> {
-    let rows = sqlx::query_as::<_, Record>("SELECT * FROM tb_record")
-        .fetch_all(pool)
-        .await
-        .map_err(|e| {
-            let err_msg = format!("Error(GetRecords): {:?}", &e);
-            tracing::error!("{}", err_msg);
+async fn get_list(pool: &PgPool, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>> {
+    let rows = sqlx::query_as::<_, Record>(
+        "
+        SELECT * FROM tb_record AS r
+        JOIN tb_book AS b ON b.id = r.book_id
+        JOIN tb_user_book_role AS br ON b.id = br.book_id
+        WHERE br.user_id = $1
+    ",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        let err_msg = format!("Error(GetRecords): {:?}", &e);
+        tracing::error!("{}", err_msg);
 
-            let err = match e {
-                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-                _ => CustomError::Unexpected(e.into()),
-            };
-            Arc::new(err)
-        })?;
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
+    })?;
 
     Ok(rows)
 }
 
-pub async fn get_by_id(pool: &PgPool, id: i64) -> Result<Record, Arc<CustomError>> {
-    let row = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE id = $1")
-        .bind(id)
-        .fetch_one(pool)
-        .await
-        .map_err(|e| {
-            let err_msg = format!("Error(GetRecord {}): {:?}", id, &e);
-            tracing::error!("{}", err_msg);
+pub async fn get_by_id(
+    pool: &PgPool,
+    user_id: i32,
+    record_id: i64,
+) -> Result<Record, Arc<CustomError>> {
+    let row = sqlx::query_as::<_, Record>(
+        "
+        SELECT * FROM tb_record AS r
+        JOIN tb_book AS b ON b.id = r.book_id
+        JOIN tb_user_book_role AS br ON b.id = br.book_id
+        WHERE r.id = $1 AND br.user_id = $1
+    ",
+    )
+    .bind(user_id)
+    .bind(record_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        let err_msg = format!("Error(GetRecord {}): {:?}", record_id, &e);
+        tracing::error!("{}", err_msg);
 
-            let err = match e {
-                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-                sqlx::Error::RowNotFound => CustomError::NotFound("Record".to_string()),
-                _ => CustomError::Unexpected(e.into()),
-            };
-            Arc::new(err)
-        })?;
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            sqlx::Error::RowNotFound => CustomError::NotFound("Record".to_string()),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
+    })?;
 
     Ok(row)
 }
@@ -93,8 +113,10 @@ mod tests {
         // Arrange
         let pool = create_connection_pool().await;
 
+        let user_id = 1;
+
         // Act
-        let result = get_list(&pool).await;
+        let result = get_list(&pool, user_id).await;
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
@@ -111,16 +133,19 @@ mod tests {
     async fn check_get_by_id_success() {
         // Arrange
         let pool = create_connection_pool().await;
-        let id = 1i64;
+
+        let user_id = 1;
+        // save_record
+        let record_id = 1i64;
 
         // Act
-        let result = get_by_id(&pool, id).await;
+        let result = get_by_id(&pool, user_id, record_id).await;
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
         let row = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE id = $1")
-            .bind(id)
+            .bind(record_id)
             .fetch_one(&pool)
             .await
             .unwrap();
@@ -132,10 +157,12 @@ mod tests {
     async fn check_get_by_id_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
-        let id = -32i64;
+
+        let user_id = 1;
+        let no_id = -32i64;
 
         // Act
-        let result = get_by_id(&pool, id).await;
+        let result = get_by_id(&pool, user_id, no_id).await;
 
         // Assert
         assert!(result.is_err())

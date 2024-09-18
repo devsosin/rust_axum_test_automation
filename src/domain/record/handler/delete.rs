@@ -8,12 +8,13 @@ use crate::domain::record::usecase::delete::DeleteRecordUsecase;
 
 pub async fn delete_record<T>(
     Extension(usecase): Extension<Arc<T>>,
-    Path(id): Path<i64>,
+    Extension(user_id): Extension<i32>,
+    Path(record_id): Path<i64>,
 ) -> impl IntoResponse
 where
     T: DeleteRecordUsecase,
 {
-    match usecase.delete_record(id).await {
+    match usecase.delete_record(user_id, record_id).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -39,31 +40,41 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordUsecase for DeleteRecordUsecaseImpl {
-            async fn delete_record(&self, id: i64) -> Result<(), Arc<CustomError>>;
+            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
         }
+    }
+
+    fn _create_app(user_id: i32, mock_usecase: MockDeleteRecordUsecaseImpl) -> Router {
+        Router::new()
+            .route(
+                "/api/v1/record/:record_id",
+                delete(delete_record::<MockDeleteRecordUsecaseImpl>),
+            )
+            .layer(Extension(Arc::new(mock_usecase)))
+            .layer(Extension(user_id))
+    }
+
+    fn _create_req(record_id: i64) -> Request {
+        Request::builder()
+            .method("DELETE")
+            .uri(format!("/api/v1/record/{}", record_id))
+            .body(Body::empty())
+            .unwrap()
     }
 
     #[tokio::test]
     async fn check_delete_record_status() {
         // Arrange
-        let id = 1i64;
+        let user_id = 1;
+        let record_id = 1i64;
         let mut mock_usecase = MockDeleteRecordUsecaseImpl::new();
         mock_usecase
             .expect_delete_record()
-            .with(predicate::eq(id))
-            .returning(|i| Ok(()));
+            .with(predicate::eq(user_id), predicate::eq(record_id))
+            .returning(|_, _| Ok(()));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                delete(delete_record::<MockDeleteRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-        let req = Request::builder()
-            .method("DELETE")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -75,24 +86,16 @@ mod tests {
     #[tokio::test]
     async fn check_delete_record_body() {
         // Arrange
-        let id = 1i64;
+        let user_id = 1;
+        let record_id = 1i64;
         let mut mock_usecase = MockDeleteRecordUsecaseImpl::new();
         mock_usecase
             .expect_delete_record()
-            .with(predicate::eq(id))
-            .returning(|i| Ok(()));
+            .with(predicate::eq(user_id), predicate::eq(record_id))
+            .returning(|_, _| Ok(()));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                delete(delete_record::<MockDeleteRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-        let req = Request::builder()
-            .method("DELETE")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -117,24 +120,16 @@ mod tests {
     #[tokio::test]
     async fn check_id_not_found() {
         // Arrange
-        let id = -32i64;
+        let user_id = 1;
+        let no_id = -32i64;
         let mut mock_usecase = MockDeleteRecordUsecaseImpl::new();
         mock_usecase
             .expect_delete_record()
-            .with(predicate::eq(id))
-            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
+            .with(predicate::eq(user_id), predicate::eq(no_id))
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                delete(delete_record::<MockDeleteRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-        let req = Request::builder()
-            .method("DELETE")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(no_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();

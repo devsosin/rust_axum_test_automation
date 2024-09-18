@@ -40,20 +40,28 @@ impl SaveRecordRepo for SaveRecordRepoImpl {
 
 #[derive(Debug, sqlx::FromRow)]
 struct InsertRecord {
-    is_authroized: bool,
+    is_authorized: bool,
     record_id: Option<i64>,
-    connect_ids: Vec<i32>
+    connect_ids: Vec<i32>,
+    is_asset_exist: bool,
+    is_category_exist: bool,
 }
 
 impl InsertRecord {
-    pub fn get_authroized(&self) -> bool {
-        self.is_authroized
+    pub fn get_authorized(&self) -> bool {
+        self.is_authorized
     }
     pub fn get_record_id(&self) -> Option<i64> {
         self.record_id
     }
     pub fn get_connects(&self) -> &Vec<i32> {
         &self.connect_ids
+    }
+    fn get_asset_exist(&self) -> bool {
+        self.is_asset_exist
+    }
+    fn get_category_exist(&self) -> bool {
+        self.is_category_exist
     }
 }
 
@@ -70,11 +78,34 @@ pub async fn save_record(
             FROM tb_user_book_role
             WHERE user_id = $1 AND book_id = $2 AND role != 'viewer'
         ),
+        CategoryCheck AS (
+            SELECT EXISTS (
+                SELECT 1
+                FROM tb_sub_category AS sc
+                JOIN tb_base_category AS bc ON bc.id = sc.base_id
+                LEFT JOIN AuthorityCheck AS ac ON bc.book_id = ac.book_id
+                WHERE sc.id = $3 
+                    AND (ac.book_id IS NOT NULL OR bc.book_id IS NULL)
+            ) AS is_category_exist
+        ),
+        AssetCheck AS (
+            SELECT CASE
+                WHEN $7 IS NULL THEN TRUE
+                ELSE EXISTS (
+                    SELECT 1
+                    FROM tb_asset AS a
+                    JOIN AuthorityCheck AS ac ON ac.book_id = a.book_id
+                    WHERE a.id = $7
+                ) 
+            END AS is_asset_exist
+        ),
         InsertRecord AS (
             INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, created_at, asset_id) 
-                SELECT (book_id, $3, $4, $5, $6, NOW(), $7)
+                SELECT book_id, $3, $4, $5, $6, NOW(), $7
                     FROM AuthorityCheck
                     WHERE book_id IS NOT NULL
+                        AND (SELECT is_category_exist FROM CategoryCheck) = true
+                        AND (SELECT is_asset_exist FROM AssetCheck) = true
             RETURNING id
         ),
         ValidConnects AS (
@@ -92,7 +123,9 @@ pub async fn save_record(
         SELECT 
             (SELECT id FROM InsertRecord) AS record_id,
             EXISTS (SELECT 1 FROM AuthorityCheck) AS is_authorized,
-            ARRAY(SELECT connect_id FROM InsertConnect) AS connect_ids;
+            ARRAY(SELECT connect_id FROM InsertConnect) AS connect_ids,
+            (SELECT is_category_exist FROM CategoryCheck) AS is_category_exist,
+            (SELECT is_asset_exist FROM AssetCheck) AS is_asset_exist;
     "#,
     )
     .bind(user_id)
@@ -116,9 +149,13 @@ pub async fn save_record(
         Box::new(err)
     })?;
     
-    if !result.get_authroized() {
+    if !result.get_authorized() {
         return Err(Box::new(CustomError::Unauthorized("RecordRole".to_string())))
-    } // 카테고리 체크
+    } else if !result.get_asset_exist() {
+        return Err(Box::new(CustomError::NotFound("Asset".to_string())))
+    } else if !result.get_category_exist() {
+        return Err(Box::new(CustomError::NotFound("Category".to_string())))
+    }
 
     // 커넥트 반환
     result.get_connects();
@@ -202,7 +239,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_no_category() {
+    async fn check_category_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
 
@@ -221,6 +258,7 @@ mod tests {
         // Assert
         // Not Found -> 권한 없는 카테고리 접근 제한
         assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
         let err_type = match *result.err().unwrap() {
             CustomError::NotFound(_) => true,
             _ => false,
@@ -256,17 +294,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_no_asset() {
+    async fn check_asset_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
 
         let user_id = 1;
         let record = Record::new(
-            -32, // 없는 가계부
+            1,
             18,
             16300,
             NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            Some(-32),
+            Some(-32), // 없는 자산, 다른 가계부 자산
         );
 
         // Act
@@ -274,15 +312,16 @@ mod tests {
 
         // Assert
         assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
         let err_type = match *result.err().unwrap() {
-            CustomError::DatabaseError(_) => true,
+            CustomError::NotFound(_) => true,
             _ => false,
         };
         assert!(err_type)
     }
 
     #[tokio::test]
-    async fn check_no_role() {
+    async fn check_unauthorized() {
         // Arrange
         let pool = create_connection_pool().await;
 

@@ -6,11 +6,14 @@ use serde_json::json;
 
 use crate::domain::record::usecase::read::ReadRecordUsecase;
 
-pub async fn read_records<T>(Extension(usecase): Extension<Arc<T>>) -> impl IntoResponse
+pub async fn read_records<T>(
+    Extension(usecase): Extension<Arc<T>>,
+    Extension(user_id): Extension<i32>,
+) -> impl IntoResponse
 where
     T: ReadRecordUsecase,
 {
-    match usecase.read_records().await {
+    match usecase.read_records(user_id).await {
         Ok(records) => (StatusCode::OK, Json(json!(records))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -18,12 +21,13 @@ where
 
 pub async fn read_record<T>(
     Extension(usecase): Extension<Arc<T>>,
-    Path(id): Path<i64>,
+    Extension(user_id): Extension<i32>,
+    Path(record_id): Path<i64>,
 ) -> impl IntoResponse
 where
     T: ReadRecordUsecase,
 {
-    match usecase.read_record(id).await {
+    match usecase.read_record(user_id, record_id).await {
         Ok(record) => (StatusCode::OK, Json(json!(record))).into_response(),
         Err(err) => err.as_ref().into_response(),
     }
@@ -51,8 +55,8 @@ mod tests {
 
         #[async_trait]
         impl ReadRecordUsecase for ReadRecordUsecaseImpl {
-            async fn read_records(&self) -> Result<Vec<Record>, Arc<CustomError>>;
-            async fn read_record(&self, id: i64) -> Result<Record, Arc<CustomError>>;
+            async fn read_records(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>>;
+            async fn read_record(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>>;
         }
     }
     fn test_records() -> Vec<Record> {
@@ -87,26 +91,53 @@ mod tests {
         ]
     }
 
-    #[tokio::test]
-    async fn check_read_records_status() {
-        // Arrange
-        let mut mock_usecase = MockReadRecordUsecaseImpl::new();
-        mock_usecase
-            .expect_read_records()
-            .returning(|| Ok(test_records()));
-
-        let app = Router::new()
+    fn _create_list_app(user_id: i32, mock_usecase: MockReadRecordUsecaseImpl) -> Router {
+        Router::new()
             .route(
                 "/api/v1/record",
                 get(read_records::<MockReadRecordUsecaseImpl>),
             )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
+            .layer(Extension(Arc::new(mock_usecase)))
+            .layer(Extension(user_id))
+    }
+    fn _create_list_req() -> Request {
+        Request::builder()
             .method("GET")
             .uri("/api/v1/record")
-            .body(Body::from(()))
-            .unwrap();
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    fn _create_app(user_id: i32, mock_usecase: MockReadRecordUsecaseImpl) -> Router {
+        Router::new()
+            .route(
+                "/api/v1/record/:record_id",
+                get(read_record::<MockReadRecordUsecaseImpl>),
+            )
+            .layer(Extension(Arc::new(mock_usecase)))
+            .layer(Extension(user_id))
+    }
+    fn _create_req(record_id: i64) -> Request {
+        Request::builder()
+            .method("GET")
+            .uri(format!("/api/v1/record/{}", record_id))
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn check_read_records_status() {
+        // Arrange
+        let user_id = 1;
+
+        let mut mock_usecase = MockReadRecordUsecaseImpl::new();
+        mock_usecase
+            .expect_read_records()
+            .with(predicate::eq(user_id))
+            .returning(|_| Ok(test_records()));
+
+        let app = _create_list_app(user_id, mock_usecase);
+        let req = _create_list_req();
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -118,23 +149,16 @@ mod tests {
     #[tokio::test]
     async fn check_read_records_body() {
         // Arrange
+        let user_id = 1;
+
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_records()
-            .returning(|| Ok(test_records()));
+            .with(predicate::eq(user_id))
+            .returning(|_| Ok(test_records()));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record",
-                get(read_records::<MockReadRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri("/api/v1/record")
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_list_app(user_id, mock_usecase);
+        let req = _create_list_req();
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -168,12 +192,13 @@ mod tests {
     #[tokio::test]
     async fn check_read_record_status() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let record_id = 1;
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_record()
-            .with(predicate::eq(id))
-            .returning(|i| {
+            .with(predicate::eq(user_id), predicate::eq(record_id))
+            .returning(|_, i| {
                 Ok(Record::new(
                     1,
                     18,
@@ -181,21 +206,12 @@ mod tests {
                     NaiveDateTime::parse_from_str("2024-09-07 15:30:27", "%Y-%m-%d %H:%M:%S")
                         .unwrap(),
                     None,
-                ))
+                )
+                .id(Some(i)))
             });
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                get(read_record::<MockReadRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -207,12 +223,13 @@ mod tests {
     #[tokio::test]
     async fn check_read_record_body() {
         // Arrange
-        let id = 1;
+        let user_id = 1;
+        let record_id = 1;
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_record()
-            .with(predicate::eq(id))
-            .returning(|i| {
+            .with(predicate::eq(user_id), predicate::eq(record_id))
+            .returning(|_, i| {
                 Ok(Record::new(
                     1,
                     18,
@@ -225,18 +242,8 @@ mod tests {
                 .build())
             });
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                get(read_record::<MockReadRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(record_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -255,31 +262,22 @@ mod tests {
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
         // Assert
-        assert_eq!(body_json["id"], id);
+        assert_eq!(body_json["id"], record_id);
     }
 
     #[tokio::test]
     async fn check_read_record_not_found() {
         // Arrange
-        let id = -32;
+        let user_id = 1;
+        let no_id = -32;
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_record()
-            .with(predicate::eq(id))
-            .returning(|i| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
+            .with(predicate::eq(user_id), predicate::eq(no_id))
+            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
 
-        let app = Router::new()
-            .route(
-                "/api/v1/record/:record_id",
-                get(read_record::<MockReadRecordUsecaseImpl>),
-            )
-            .layer(Extension(Arc::new(mock_usecase)));
-
-        let req = Request::builder()
-            .method("GET")
-            .uri(format!("/api/v1/record/{}", id))
-            .body(Body::from(()))
-            .unwrap();
+        let app = _create_app(user_id, mock_usecase);
+        let req = _create_req(no_id);
 
         // Act
         let response = app.oneshot(req).await.unwrap();

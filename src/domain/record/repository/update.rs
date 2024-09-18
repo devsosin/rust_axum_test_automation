@@ -45,98 +45,171 @@ fn make_query(index: &mut i32, field_name: &str) -> String {
     format!("{} = ${}, ", field_name, index)
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct UpdateRecordResult {
+    is_exist: bool,
+    is_authorized: bool,
+    update_count: i64,
+    is_asset_exist: bool,
+    is_category_exist: bool,
+}
+
+impl UpdateRecordResult {
+    fn get_exist(&self) -> bool {
+        self.is_exist
+    }
+    fn get_authorized(&self) -> bool {
+        self.is_authorized
+    }
+    fn get_asset_exist(&self) -> bool {
+        self.is_asset_exist
+    }
+    fn get_category_exist(&self) -> bool {
+        self.is_category_exist
+    }
+}
+
 async fn update_record(
     pool: &PgPool,
     user_id: i32,
     record_id: i64,
     edit_record: UpdateRecord,
 ) -> Result<(), Arc<CustomError>> {
-    // record exists
-    // authority checks
     let mut query = r"
         WITH RecordExists AS (
+            SELECT book_id
+            FROM tb_record
+            WHERE id = $2
         ),
         AuthorityCheck AS (
-            SELECT book_id
-            FROM tb_user_book_role AS br
-            JOIN tb_book AS b ON b.id = br.book_id
-            JOIN tb_record AS r ON r.book_id = b.id
-            WHERE br.user_id = $1 AND r.record_id = $2 AND br.role != 'viewer'
-        ),
-        UpdateRecord AS (
-            UPDATE tb_record SET
-        )"
+            SELECT r.book_id
+            FROM RecordExists AS r
+            JOIN tb_book AS b ON b.id = r.book_id
+            JOIN tb_user_book_role AS br ON b.id = br.book_id
+            WHERE br.user_id = $1 AND br.role != 'viewer'
+        ),"
     .to_string();
 
-    let mut query: String = "UPDATE tb_record SET ".to_string();
-    let mut index = 0;
+    let mut index = 2;
+    let mut ctg_check = false;
+    let mut asset_check = false;
 
-    match edit_record.get_sub_category_id() {
-        FieldUpdate::Set(_) => {
-            query.push_str(&make_query(&mut index, "sub_category_id"));
-        }
-        _ => {}
+    let mut update_query = r"
+        UpdateRecord AS (
+            UPDATE tb_record SET "
+        .to_string();
+
+    if let FieldUpdate::Set(_) = edit_record.get_sub_category_id() {
+        update_query.push_str(&make_query(&mut index, "sub_category_id"));
+        query.push_str(&format!(
+            r"
+            CategoryCheck AS (
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM tb_sub_category AS sc
+                    JOIN tb_base_category AS bc ON bc.id = sc.base_id
+                    LEFT JOIN RecordExists AS r ON bc.book_id = r.book_id
+                    WHERE sc.id = ${}
+                        AND (r.book_id IS NOT NULL OR bc.book_id IS NULL)
+                ) AS is_category_exist
+            ),",
+            index
+        ));
+        ctg_check = true;
     };
-    match edit_record.get_amount() {
-        FieldUpdate::Set(_) => {
-            query.push_str(&make_query(&mut index, "amount"));
-        }
-        _ => {}
+    if let FieldUpdate::Set(_) = edit_record.get_amount() {
+        update_query.push_str(&make_query(&mut index, "amount"));
     };
-    match edit_record.get_memo() {
-        FieldUpdate::Set(_) => {
-            query.push_str(&make_query(&mut index, "memo"));
-        }
-        _ => {}
+    if let FieldUpdate::Set(_) = edit_record.get_memo() {
+        update_query.push_str(&make_query(&mut index, "memo"));
     };
-    match edit_record.get_target_dt() {
-        FieldUpdate::Set(_) => {
-            query.push_str(&make_query(&mut index, "target_dt"));
-        }
-        _ => {}
-    }
+    if let FieldUpdate::Set(_) = edit_record.get_target_dt() {
+        update_query.push_str(&make_query(&mut index, "target_dt"));
+    };
     match edit_record.get_asset_id() {
         FieldUpdate::Set(_) => {
-            query.push_str(&make_query(&mut index, "asset_id"));
+            update_query.push_str(&make_query(&mut index, "asset_id"));
+            query.push_str(&format!(
+                r"
+                AssetCheck AS (
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM tb_asset AS a
+                        JOIN RecordExists AS r ON r.book_id = a.book_id
+                        WHERE a.id = ${}
+                        ) AS is_asset_exist
+                        ),",
+                index
+            ));
+            asset_check = true;
         }
         FieldUpdate::SetNone => {
-            query.push_str(&make_query(&mut index, "asset_id"));
+            update_query.push_str(&make_query(&mut index, "asset_id"));
         }
-        FieldUpdate::NoChange => {}
+        _ => {}
     }
 
-    if index == 0 {
+    if index == 2 {
         return Err(Arc::new(CustomError::NoFieldUpdate("Record".to_string())));
     }
 
-    query.push_str("updated_at = NOW()");
-    query.push_str(&format!(" WHERE id = ${}", index + 1));
+    update_query.push_str(
+        &("
+            updated_at = NOW() 
+            WHERE id = $2
+                AND EXISTS (SELECT book_id FROM AuthorityCheck) = true
+            "
+        .to_string()
+            + if ctg_check {
+                "AND (SELECT is_category_exist FROM CategoryCheck) = true\n"
+            } else {
+                ""
+            }
+            + if asset_check {
+                "AND (SELECT is_asset_exist FROM AssetCheck) = true\n"
+            } else {
+                ""
+            }),
+    );
 
-    let mut query_builder = sqlx::query(&query).bind(user_id);
+    query.push_str(
+        &(update_query
+            + "RETURNING id
+        )" + "
+            SELECT
+                EXISTS (SELECT 1 FROM RecordExists) AS is_exist,
+                EXISTS (SELECT 1 FROM AuthorityCheck) AS is_authorized,
+                (SELECT COUNT(*) FROM UpdateRecord) AS update_count\n"
+            + if ctg_check {
+                ",(SELECT is_category_exist FROM CategoryCheck) AS is_category_exist\n"
+            } else {
+                ",true AS is_category_exist"
+            }
+            + if asset_check {
+                ",(SELECT is_asset_exist FROM AssetCheck) AS is_asset_exist\n"
+            } else {
+                ",true AS is_asset_exist"
+            }
+            + ";"),
+    );
 
-    match edit_record.get_sub_category_id() {
-        FieldUpdate::Set(v) => {
-            query_builder = query_builder.bind(v);
-        }
-        _ => (),
-    };
-    match edit_record.get_amount() {
-        FieldUpdate::Set(v) => {
-            query_builder = query_builder.bind(v);
-        }
-        _ => {}
-    };
-    match edit_record.get_memo() {
-        FieldUpdate::Set(v) => {
-            query_builder = query_builder.bind(v);
-        }
-        _ => {}
-    };
-    match edit_record.get_target_dt() {
-        FieldUpdate::Set(v) => {
-            query_builder = query_builder.bind(v);
-        }
-        _ => {}
+    println!("{}", query);
+
+    let mut query_builder = sqlx::query_as::<_, UpdateRecordResult>(&query)
+        .bind(user_id)
+        .bind(record_id);
+
+    if let FieldUpdate::Set(v) = edit_record.get_sub_category_id() {
+        query_builder = query_builder.bind(v);
+    }
+    if let FieldUpdate::Set(v) = edit_record.get_amount() {
+        query_builder = query_builder.bind(v);
+    }
+    if let FieldUpdate::Set(v) = edit_record.get_memo() {
+        query_builder = query_builder.bind(v);
+    }
+    if let FieldUpdate::Set(v) = edit_record.get_target_dt() {
+        query_builder = query_builder.bind(v);
     }
     match edit_record.get_asset_id() {
         FieldUpdate::Set(v) => {
@@ -145,26 +218,30 @@ async fn update_record(
         FieldUpdate::SetNone => {
             query_builder = query_builder.bind(None::<i32>);
         }
-        FieldUpdate::NoChange => {}
+        _ => {}
     }
 
-    let result = query_builder
-        .bind(record_id)
-        .execute(pool)
-        .await
-        .map_err(|e| {
-            let err_msg = format!("Update(Record {}): {}", record_id, e);
-            tracing::error!("{}", err_msg);
+    let result = query_builder.fetch_one(pool).await.map_err(|e| {
+        let err_msg = format!("Update(Record {}): {}", record_id, e);
+        tracing::error!("{}", err_msg);
 
-            let err = match e {
-                sqlx::Error::Database(_) => CustomError::DatabaseError(e),
-                _ => CustomError::Unexpected(e.into()),
-            };
-            Arc::new(err)
-        })?;
+        let err = match e {
+            sqlx::Error::Database(_) => CustomError::DatabaseError(e),
+            _ => CustomError::Unexpected(e.into()),
+        };
+        Arc::new(err)
+    })?;
 
-    if result.rows_affected() == 0 {
+    if !result.get_exist() {
         return Err(Arc::new(CustomError::NotFound("Record".to_string())));
+    } else if !result.get_authorized() {
+        return Err(Arc::new(CustomError::Unauthorized(
+            "RecordRole".to_string(),
+        )));
+    } else if !result.get_category_exist() {
+        return Err(Arc::new(CustomError::NotFound("Category".to_string())));
+    } else if !result.get_asset_exist() {
+        return Err(Arc::new(CustomError::NotFound("Asset".to_string())));
     }
 
     Ok(())
@@ -173,6 +250,7 @@ async fn update_record(
 #[cfg(test)]
 mod tests {
     use chrono::{NaiveDateTime, Utc};
+    use sqlx::PgPool;
 
     use crate::{
         config::database::create_connection_pool,
@@ -180,7 +258,7 @@ mod tests {
             entity::{Record, UpdateRecord},
             repository::{get_record::get_by_id, save::save_record, update::update_record},
         },
-        global::constants::FieldUpdate,
+        global::{constants::FieldUpdate, errors::CustomError},
     };
 
     #[tokio::test]
@@ -192,12 +270,7 @@ mod tests {
         assert_eq!(pool.is_closed(), false)
     }
 
-    #[tokio::test]
-    async fn check_success() {
-        // Arrange
-        let pool = create_connection_pool().await;
-
-        let user_id = 1;
+    async fn _save_sample(pool: &PgPool, user_id: i32) -> i64 {
         let record = Record::new(
             1,
             18, // 식비
@@ -205,10 +278,19 @@ mod tests {
             NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
             None,
         );
+        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        new_id
+    }
 
+    #[tokio::test]
+    async fn check_update_record_success() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user_id = 1;
         let change_amount: i32 = 15000;
 
-        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        let new_id = _save_sample(&pool, user_id).await;
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(change_amount),
@@ -222,7 +304,7 @@ mod tests {
         assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
-        let row = get_by_id(&pool, new_id).await.unwrap();
+        let row = get_by_id(&pool, user_id, new_id).await.unwrap();
 
         assert_eq!(row.get_amount(), change_amount);
         assert_eq!(row.get_memo(), &None);
@@ -234,15 +316,8 @@ mod tests {
         let pool = create_connection_pool().await;
 
         let user_id = 1;
-        let record = Record::new(
-            1,
-            18, // 식비
-            16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            None,
-        );
 
-        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        let new_id = _save_sample(&pool, user_id).await;
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::NoChange,
@@ -255,7 +330,13 @@ mod tests {
         let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::NoFieldUpdate(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 
     #[tokio::test]
@@ -277,7 +358,12 @@ mod tests {
         let result = update_record(&pool, user_id, no_id, edit_record).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(result.is_err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::NotFound(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 
     #[tokio::test]
@@ -286,17 +372,10 @@ mod tests {
         let pool = create_connection_pool().await;
 
         let user_id = 1;
-        let record = Record::new(
-            1,
-            18, // 식비
-            16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            None,
-        );
 
-        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        let new_id = _save_sample(&pool, user_id).await;
         let edit_record = UpdateRecord::new(
-            FieldUpdate::Set(-32),
+            FieldUpdate::Set(-32), // 없는 카테고리, 내 카테고리가 아닌 경우
             FieldUpdate::NoChange,
             FieldUpdate::NoChange,
             FieldUpdate::NoChange,
@@ -307,7 +386,12 @@ mod tests {
         let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(result.is_err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::NotFound(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 
     #[tokio::test]
@@ -316,28 +400,27 @@ mod tests {
         let pool = create_connection_pool().await;
 
         let user_id = 1;
-        let record = Record::new(
-            1,
-            18, // 식비
-            16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            None,
-        );
 
-        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        let new_id = _save_sample(&pool, user_id).await;
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(15000),
             FieldUpdate::SetNone,
             FieldUpdate::NoChange,
-            FieldUpdate::Set(-32),
+            FieldUpdate::Set(-32), // 없는 자산, 내 자산이 아닌 경우
         );
 
         // Act
         let result = update_record(&pool, user_id, new_id, edit_record).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::NotFound(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 
     #[tokio::test]
@@ -346,15 +429,8 @@ mod tests {
         let pool = create_connection_pool().await;
 
         let user_id = 1;
-        let record = Record::new(
-            1,
-            18, // 식비
-            16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
-            None,
-        );
 
-        let new_id = save_record(&pool, user_id, record, None).await.unwrap();
+        let new_id = _save_sample(&pool, user_id).await;
         let edit_record = UpdateRecord::new(
             FieldUpdate::NoChange,
             FieldUpdate::Set(15000),
@@ -369,31 +445,7 @@ mod tests {
         assert!(result.map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
-        let updated_user = get_by_id(&pool, new_id).await.unwrap();
+        let updated_user = get_by_id(&pool, user_id, new_id).await.unwrap();
         assert!(last_time < updated_user.get_updated_at().unwrap())
-    }
-
-    #[tokio::test]
-    async fn check_category_valid() {
-        // 해당 카테고리 권한
-        todo!()
-
-        // Arrange
-
-        // Act
-
-        // Assert
-    }
-
-    #[tokio::test]
-    async fn check_asset_valid() {
-        // 해당 자산 권한
-        todo!()
-
-        // Arrange
-
-        // Act
-
-        // Assert
     }
 }
