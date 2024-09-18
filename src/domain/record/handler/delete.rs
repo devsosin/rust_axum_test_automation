@@ -16,7 +16,7 @@ where
 {
     match usecase.delete_record(user_id, record_id).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
-        Err(err) => err.as_ref().into_response(),
+        Err(err) => err.into_response(),
     }
 }
 
@@ -40,7 +40,7 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordUsecase for DeleteRecordUsecaseImpl {
-            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
+            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>>;
         }
     }
 
@@ -126,7 +126,7 @@ mod tests {
         mock_usecase
             .expect_delete_record()
             .with(predicate::eq(user_id), predicate::eq(no_id))
-            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
+            .returning(|_, _| Err(Box::new(CustomError::NotFound("Record".to_string()))));
 
         let app = _create_app(user_id, mock_usecase);
         let req = _create_req(no_id);

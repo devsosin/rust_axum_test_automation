@@ -31,6 +31,8 @@ pub mod global {
 pub mod domain {
     pub mod auth;
     pub mod book;
+    pub mod category;
+    pub mod connect;
     pub mod image;
     pub mod record;
     pub mod user;

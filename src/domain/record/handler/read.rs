@@ -15,7 +15,7 @@ where
 {
     match usecase.read_records(user_id).await {
         Ok(records) => (StatusCode::OK, Json(json!(records))).into_response(),
-        Err(err) => err.as_ref().into_response(),
+        Err(err) => err.into_response(),
     }
 }
 
@@ -29,7 +29,7 @@ where
 {
     match usecase.read_record(user_id, record_id).await {
         Ok(record) => (StatusCode::OK, Json(json!(record))).into_response(),
-        Err(err) => err.as_ref().into_response(),
+        Err(err) => err.into_response(),
     }
 }
 
@@ -55,8 +55,8 @@ mod tests {
 
         #[async_trait]
         impl ReadRecordUsecase for ReadRecordUsecaseImpl {
-            async fn read_records(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>>;
-            async fn read_record(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>>;
+            async fn read_records(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>>;
+            async fn read_record(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>>;
         }
     }
     fn test_records() -> Vec<Record> {
@@ -181,15 +181,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn check_read_records_failure() {
-        // Arrange
-
-        // Act
-
-        // Assert
-    }
-
-    #[tokio::test]
     async fn check_read_record_status() {
         // Arrange
         let user_id = 1;
@@ -274,7 +265,7 @@ mod tests {
         mock_usecase
             .expect_read_record()
             .with(predicate::eq(user_id), predicate::eq(no_id))
-            .returning(|_, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
+            .returning(|_, _| Err(Box::new(CustomError::NotFound("Record".to_string()))));
 
         let app = _create_app(user_id, mock_usecase);
         let req = _create_req(no_id);

@@ -11,7 +11,7 @@ pub struct DeleteRecordRepoImpl {
 
 #[async_trait]
 pub trait DeleteRecordRepo: Send + Sync {
-    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>>;
 }
 
 impl DeleteRecordRepoImpl {
@@ -22,7 +22,7 @@ impl DeleteRecordRepoImpl {
 
 #[async_trait]
 impl DeleteRecordRepo for DeleteRecordRepoImpl {
-    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>> {
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>> {
         delete_record(&self.pool, user_id, record_id).await
     }
 }
@@ -31,7 +31,7 @@ async fn delete_record(
     pool: &PgPool,
     user_id: i32,
     record_id: i64,
-) -> Result<(), Arc<CustomError>> {
+) -> Result<(), Box<CustomError>> {
     let result = sqlx::query_as::<_, DeleteResult>(
         r"
         WITH RecordExists AS (
@@ -71,13 +71,13 @@ async fn delete_record(
             sqlx::Error::Database(_) => CustomError::DatabaseError(e),
             _ => CustomError::Unexpected(e.into()),
         };
-        Arc::new(err)
+        Box::new(err)
     })?;
 
     if !result.get_exist() {
-        return Err(Arc::new(CustomError::NotFound("Record".to_string())));
+        return Err(Box::new(CustomError::NotFound("Record".to_string())));
     } else if !result.get_authorized() {
-        return Err(Arc::new(CustomError::Unauthorized(
+        return Err(Box::new(CustomError::Unauthorized(
             "RecordRole".to_string(),
         )));
     }

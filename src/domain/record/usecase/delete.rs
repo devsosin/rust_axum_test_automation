@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::async_trait;
 
 use crate::{domain::record::repository::delete::DeleteRecordRepo, global::errors::CustomError};
@@ -13,7 +11,7 @@ where
 
 #[async_trait]
 pub trait DeleteRecordUsecase: Send + Sync {
-    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>>;
 }
 
 impl<T> DeleteRecordUsecaseImpl<T>
@@ -30,7 +28,7 @@ impl<T> DeleteRecordUsecase for DeleteRecordUsecaseImpl<T>
 where
     T: DeleteRecordRepo,
 {
-    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>> {
+    async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>> {
         delete_record(&self.repository, user_id, record_id).await
     }
 }
@@ -39,7 +37,7 @@ async fn delete_record<T>(
     repository: &T,
     user_id: i32,
     record_id: i64,
-) -> Result<(), Arc<CustomError>>
+) -> Result<(), Box<CustomError>>
 where
     T: DeleteRecordRepo,
 {
@@ -48,8 +46,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use axum::async_trait;
     use mockall::{mock, predicate};
 
@@ -64,7 +60,7 @@ mod tests {
 
         #[async_trait]
         impl DeleteRecordRepo for DeleteRecordRepoImpl{
-            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Arc<CustomError>>;
+            async fn delete_record(&self, user_id: i32, record_id: i64) -> Result<(), Box<CustomError>>;
         }
     }
 

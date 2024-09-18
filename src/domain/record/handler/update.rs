@@ -17,7 +17,7 @@ where
 {
     match usecase.update_record(user_id, record_id, edit_record).await {
         Ok(_) => (StatusCode::OK, Json(json!({"message": "성공"}))).into_response(),
-        Err(err) => err.as_ref().into_response(),
+        Err(err) => err.into_response(),
     }
 }
 
@@ -43,7 +43,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordUsecase for UpdateRecordUsecaseImpl {
-            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: EditRecord) -> Result<(), Arc<CustomError>>;
+            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: EditRecord) -> Result<(), Box<CustomError>>;
         }
     }
 
@@ -135,7 +135,6 @@ mod tests {
 
     #[tokio::test]
     async fn check_update_record_not_found() {
-        // Unauthorized
         // Arrange
         let user_id = 1;
         let no_id = -32;
@@ -149,7 +148,7 @@ mod tests {
                 predicate::eq(no_id),
                 predicate::eq(edit_record.clone()),
             )
-            .returning(|_, _, _| Err(Arc::new(CustomError::NotFound("Record".to_string()))));
+            .returning(|_, _, _| Err(Box::new(CustomError::NotFound("Record".to_string()))));
 
         let app = _create_app(user_id, mock_usecase);
         let req = _create_req(no_id, &edit_record);

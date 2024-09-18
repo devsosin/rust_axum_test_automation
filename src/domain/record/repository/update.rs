@@ -19,7 +19,7 @@ pub trait UpdateRecordRepo: Send + Sync {
         user_id: i32,
         record_id: i64,
         edit_record: UpdateRecord,
-    ) -> Result<(), Arc<CustomError>>;
+    ) -> Result<(), Box<CustomError>>;
 }
 
 impl UpdateRecordRepoImpl {
@@ -35,7 +35,7 @@ impl UpdateRecordRepo for UpdateRecordRepoImpl {
         user_id: i32,
         record_id: i64,
         edit_record: UpdateRecord,
-    ) -> Result<(), Arc<CustomError>> {
+    ) -> Result<(), Box<CustomError>> {
         update_record(&self.pool, user_id, record_id, edit_record).await
     }
 }
@@ -74,7 +74,7 @@ async fn update_record(
     user_id: i32,
     record_id: i64,
     edit_record: UpdateRecord,
-) -> Result<(), Arc<CustomError>> {
+) -> Result<(), Box<CustomError>> {
     let mut query = r"
         WITH RecordExists AS (
             SELECT book_id
@@ -150,7 +150,7 @@ async fn update_record(
     }
 
     if index == 2 {
-        return Err(Arc::new(CustomError::NoFieldUpdate("Record".to_string())));
+        return Err(Box::new(CustomError::NoFieldUpdate("Record".to_string())));
     }
 
     update_query.push_str(
@@ -229,19 +229,19 @@ async fn update_record(
             sqlx::Error::Database(_) => CustomError::DatabaseError(e),
             _ => CustomError::Unexpected(e.into()),
         };
-        Arc::new(err)
+        Box::new(err)
     })?;
 
     if !result.get_exist() {
-        return Err(Arc::new(CustomError::NotFound("Record".to_string())));
+        return Err(Box::new(CustomError::NotFound("Record".to_string())));
     } else if !result.get_authorized() {
-        return Err(Arc::new(CustomError::Unauthorized(
+        return Err(Box::new(CustomError::Unauthorized(
             "RecordRole".to_string(),
         )));
     } else if !result.get_category_exist() {
-        return Err(Arc::new(CustomError::NotFound("Category".to_string())));
+        return Err(Box::new(CustomError::NotFound("Category".to_string())));
     } else if !result.get_asset_exist() {
-        return Err(Arc::new(CustomError::NotFound("Asset".to_string())));
+        return Err(Box::new(CustomError::NotFound("Asset".to_string())));
     }
 
     Ok(())
@@ -301,7 +301,7 @@ mod tests {
 
         // Act
         let result = update_record(&pool, user_id, new_id, edit_record).await;
-        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
 
         // Assert
         let row = get_by_id(&pool, user_id, new_id).await.unwrap();

@@ -53,6 +53,7 @@ CREATE TABLE tb_base_category(
     type_id SMALLINT NOT NULL,
     book_id INT,
     is_record BOOLEAN NOT NULL,
+    is_income BOOLEAN NOT NULL,
     name VARCHAR(16) NOT NULL,
     color VARCHAR(8) NOT NULL,
 

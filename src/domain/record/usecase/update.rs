@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::async_trait;
 
 use crate::{
@@ -21,7 +19,7 @@ pub trait UpdateRecordUsecase: Send + Sync {
         user_id: i32,
         record_id: i64,
         edit_record: EditRecord,
-    ) -> Result<(), Arc<CustomError>>;
+    ) -> Result<(), Box<CustomError>>;
 }
 
 impl<T> UpdateRecordUsecaseImpl<T>
@@ -43,7 +41,7 @@ where
         user_id: i32,
         record_id: i64,
         edit_record: EditRecord,
-    ) -> Result<(), Arc<CustomError>> {
+    ) -> Result<(), Box<CustomError>> {
         update_record(&self.repository, user_id, record_id, edit_record).await
     }
 }
@@ -53,7 +51,7 @@ async fn update_record<T>(
     user_id: i32,
     record_id: i64,
     edit_record: EditRecord,
-) -> Result<(), Arc<CustomError>>
+) -> Result<(), Box<CustomError>>
 where
     T: UpdateRecordRepo,
 {
@@ -64,8 +62,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use axum::async_trait;
     use mockall::{mock, predicate};
 
@@ -83,7 +79,7 @@ mod tests {
 
         #[async_trait]
         impl UpdateRecordRepo for UpdateRecordRepoImpl {
-            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: UpdateRecord) -> Result<(), Arc<CustomError>>;
+            async fn update_record(&self, user_id: i32, record_id: i64, edit_record: UpdateRecord) -> Result<(), Box<CustomError>>;
         }
     }
 
@@ -109,6 +105,6 @@ mod tests {
         let result = update_record(&mock_repo, user_id, record_id, edit_record).await;
 
         // Assert
-        assert!(result.is_ok())
+        assert!(result.map_err(|e| println!("{:?}", e)).is_ok())
     }
 }

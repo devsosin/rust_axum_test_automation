@@ -11,8 +11,8 @@ pub struct GetRecordRepoImpl {
 
 #[async_trait]
 pub trait GetRecordRepo: Send + Sync {
-    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>>;
-    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>>;
+    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>>;
+    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>>;
 }
 
 impl GetRecordRepoImpl {
@@ -23,15 +23,15 @@ impl GetRecordRepoImpl {
 
 #[async_trait]
 impl GetRecordRepo for GetRecordRepoImpl {
-    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>> {
+    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>> {
         get_list(&self.pool, user_id).await
     }
-    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Arc<CustomError>> {
+    async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>> {
         get_by_id(&self.pool, user_id, record_id).await
     }
 }
 
-async fn get_list(pool: &PgPool, user_id: i32) -> Result<Vec<Record>, Arc<CustomError>> {
+async fn get_list(pool: &PgPool, user_id: i32) -> Result<Vec<Record>, Box<CustomError>> {
     let rows = sqlx::query_as::<_, Record>(
         "
         SELECT * FROM tb_record AS r
@@ -51,7 +51,7 @@ async fn get_list(pool: &PgPool, user_id: i32) -> Result<Vec<Record>, Arc<Custom
             sqlx::Error::Database(_) => CustomError::DatabaseError(e),
             _ => CustomError::Unexpected(e.into()),
         };
-        Arc::new(err)
+        Box::new(err)
     })?;
 
     Ok(rows)
@@ -61,7 +61,7 @@ pub async fn get_by_id(
     pool: &PgPool,
     user_id: i32,
     record_id: i64,
-) -> Result<Record, Arc<CustomError>> {
+) -> Result<Record, Box<CustomError>> {
     let row = sqlx::query_as::<_, Record>(
         "
         SELECT * FROM tb_record AS r
@@ -83,7 +83,7 @@ pub async fn get_by_id(
             sqlx::Error::RowNotFound => CustomError::NotFound("Record".to_string()),
             _ => CustomError::Unexpected(e.into()),
         };
-        Arc::new(err)
+        Box::new(err)
     })?;
 
     Ok(row)
@@ -97,6 +97,7 @@ mod tests {
             entity::Record,
             repository::get_record::{get_by_id, get_list},
         },
+        global::errors::CustomError,
     };
 
     #[tokio::test]
@@ -117,7 +118,7 @@ mod tests {
 
         // Act
         let result = get_list(&pool, user_id).await;
-        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
@@ -140,7 +141,7 @@ mod tests {
 
         // Act
         let result = get_by_id(&pool, user_id, record_id).await;
-        assert!(result.clone().map_err(|e| println!("{:?}", e)).is_ok());
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
@@ -165,6 +166,12 @@ mod tests {
         let result = get_by_id(&pool, user_id, no_id).await;
 
         // Assert
-        assert!(result.is_err())
+        assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::NotFound(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
     }
 }
