@@ -88,7 +88,7 @@ pub async fn save_book(pool: &PgPool, book: Book, user_id: i32) -> Result<i32, B
         Box::new(err)
     })?;
 
-    if row.get_duplicated() {
+    if row.is_duplicated {
         return Err(Box::new(CustomError::Duplicated("Book".to_string())));
     }
 

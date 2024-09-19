@@ -57,6 +57,7 @@ impl BaseCategory {
     }
 }
 
+#[derive(Debug, sqlx::FromRow, PartialEq)]
 pub struct SubCategory {
     id: Option<i32>,
     base_id: i16,
@@ -75,5 +76,16 @@ impl SubCategory {
     pub fn id(mut self, id: i32) -> Self {
         self.id = Some(id);
         self
+    }
+
+    pub fn get_id(&self) -> i32 {
+        self.id.unwrap()
+    }
+
+    pub fn get_base_id(&self) -> i16 {
+        self.base_id
+    }
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }

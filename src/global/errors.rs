@@ -33,7 +33,7 @@ impl IntoResponse for &CustomError {
                 (StatusCode::NOT_FOUND, format!("{} not found", t)).into_response()
             }
             CustomError::DatabaseError(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
+                (StatusCode::BAD_REQUEST, "Database error").into_response()
             }
             CustomError::ValidationError(_) => {
                 (StatusCode::BAD_REQUEST, "Validation failed").into_response()

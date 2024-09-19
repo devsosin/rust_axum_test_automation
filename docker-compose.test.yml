@@ -9,10 +9,12 @@ services:
       - POSTGRES_USER=test
       - POSTGRES_PASSWORD=test1234
       - POSTGRES_DB=test_db
+    ports:
+      - "5432:5432"
     volumes:
       - ./db/init/:/docker-entrypoint-initdb.d/
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test"]
+      test: ["CMD-SHELL", "pg_isready -U test_db"]
       interval: 6s
       retries: 5
 

@@ -138,33 +138,33 @@ INSERT INTO tb_book_type(name) VALUES
 INSERT INTO tb_book(name, type_id) VALUES
     ('테스트 가계부', 1);
 
-INSERT INTO tb_base_category(type_id, is_record, name, color) VALUES
-    (1, FALSE, '계좌', '000000'), -- 1
-    (1, FALSE, '대출', '000000'), -- 2
-    (1, FALSE, '증권', '000000'), -- 3
-    (1, FALSE, '연금', '000000'), -- 4
-    (1, FALSE, '포인트', '000000'), -- 5
-    (1, FALSE, '기타', '000000'), -- 6
-    (1, TRUE, '수입', 'F14567'), -- 7
-    (1, TRUE, '고정지출', '4284E8'), -- 8
-    (1, TRUE, '변동지출', '4284E8'), -- 9
-    (1, TRUE, '저축', '000000'); -- 10
+INSERT INTO tb_base_category(type_id, is_record, is_income, name, color) VALUES
+    (1, FALSE, FALSE, '계좌', '000000'), -- 1
+    (1, FALSE, FALSE, '대출', '000000'), -- 2
+    (1, FALSE, FALSE, '증권', '000000'), -- 3
+    (1, FALSE, FALSE, '연금', '000000'), -- 4
+    (1, FALSE, FALSE, '포인트', '000000'), -- 5
+    (1, FALSE, FALSE, '기타', '000000'), -- 6
+    (1, TRUE, TRUE, '수입', 'F14567'), -- 7
+    (1, TRUE, FALSE, '고정지출', '4284E8'), -- 8
+    (1, TRUE, FALSE, '변동지출', '4284E8'), -- 9
+    (1, TRUE, FALSE, '저축', '000000'); -- 10
 
 -- 뒷 부분은 좀 더 지식이 많아지면
     -- -- 커플
     -- -- 커플통장
-    -- (2, FALSE, '현금', '000000'), -- 1
+    -- (2, FALSE, FALSE, '현금', '000000'), -- 1
     -- -- 모으기, 사용
-    -- (2, TRUE, '수입', '000000'), -- 6
+    -- (2, TRUE, TRUE, '수입', '000000'), -- 6
 
     -- -- 기업
-    -- (3, FALSE, '유동자산', '000000'), -- 1
-    -- (3, FALSE, '고정자산', '000000'), -- 1
+    -- (3, FALSE, FALSE, '유동자산', '000000'), -- 1
+    -- (3, FALSE, FALSE, '고정자산', '000000'), -- 1
 
-    -- (3, TRUE, '외상매입금', '000000'), -- 6
-    -- (3, TRUE, '매입금', '000000'), -- 6
-    -- (3, TRUE, '외상매출금', '000000'), -- 6
-    -- (3, TRUE, '매출금', '000000'), -- 6
+    -- (3, TRUE, FALSE, '외상매입금', '000000'), -- 6
+    -- (3, TRUE, FALSE, '매입금', '000000'), -- 6
+    -- (3, TRUE, TRUE, '외상매출금', '000000'), -- 6
+    -- (3, TRUE, TRUE, '매출금', '000000'), -- 6
 
 -- 현금을 신경써야할까?
 -- 토스
@@ -213,7 +213,11 @@ INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, create
 INSERT INTO tb_user(login_type, username, password, email) VALUES
     ('email', 'test_user', 'test_password', 'test@test.test'),
     ('email', 'viewer_user', 'test_password', 'test22@test.test');
+    ('email', 'no_role_user', 'test_password', 'test33@test.test');
 
 INSERT INTO tb_user_book_role(book_id, user_id, role) VALUES
     (1, 1, 'owner'),
     (1, 2, 'viewer');
+
+INSERT INTO tb_base_category (type_id, book_id, is_record, is_income, name, color) VALUES
+    (1, 1, TRUE, FALSE, '테스트 카테고리', '337712'); -- 11

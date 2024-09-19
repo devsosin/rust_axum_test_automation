@@ -3,8 +3,7 @@ mod handler;
 mod repository;
 mod usecase;
 mod dto {
-    mod request;
-    mod response;
+    pub(super) mod request;
 }
 
 pub mod route;
