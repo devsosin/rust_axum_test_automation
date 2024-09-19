@@ -14,7 +14,7 @@ pub trait GetCategoryRepo: Send + Sync {
     async fn get_list(
         &self,
         user_id: i32,
-        book_id: i16,
+        book_id: i32,
         is_record: bool,
     ) -> Result<Vec<BaseCategory>, Box<CustomError>>;
 }
@@ -30,54 +30,38 @@ impl GetCategoryRepo for GetCategoryRepoImpl {
     async fn get_list(
         &self,
         user_id: i32,
-        book_id: i16,
+        book_id: i32,
         is_record: bool,
     ) -> Result<Vec<BaseCategory>, Box<CustomError>> {
         get_list(&self.pool, user_id, book_id, is_record).await
     }
 }
 
-#[derive(Debug, sqlx::FromRow)]
-struct GetResult {
-    result: Vec<BaseCategory>,
-    is_exist: bool,
-    is_authorized: bool,
-}
-
 pub async fn get_list(
     pool: &PgPool,
     user_id: i32,
-    book_id: i16,
+    book_id: i32,
     is_record: bool,
 ) -> Result<Vec<BaseCategory>, Box<CustomError>> {
-    let result = sqlx::query_as::<_, GetResult>(
+    let result = sqlx::query_as::<_, BaseCategory>(
         "
-        WITH BookExists AS (
-            SELECT id
-            FROM tb_book
-            WHERE id = $2
-        ),
-        AuthorityCheck AS (
+        WITH AuthorityCheck AS (
             SELECT EXISTS (
                 SELECT 1
-                FROM BookExists  AS b
-                JOIN tb_user_book_role AS br ON b.id = br.book_id
-                WHERE br.user_id = $1
+                FROM tb_user_book_role AS br
+                WHERE br.user_id = $1 AND br.book_id = $2
             ) AS is_authorized
         )
-        SELECT 
-            ARRAY (SELECT * 
-                    FROM tb_base_category 
-                    WHERE book_id = $2 OR book_id IS NULL 
-                        AND (SELECT is_authorized FROM AuthorityCheck) = true)) AS result,
-            SELECT EXISTS (SELECT 1 FROM BookExists) AS is_exist,
-            SELECT is_authorized FROM AuthorityCheck;
+        SELECT * 
+        FROM tb_base_category 
+        WHERE (book_id = $2 OR book_id IS NULL) 
+            AND (SELECT is_authorized FROM AuthorityCheck) = true;
         ",
     )
     .bind(user_id)
     .bind(book_id)
     .bind(is_record)
-    .fetch_one(pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| {
         let err_msg = format!("Error(GetList {}): {:?}", book_id, &e);
@@ -126,7 +110,7 @@ mod tests {
         assert!(result.unwrap().len() >= 4)
     }
 
-    #[tokio::test]
+    // testing?
     async fn check_book_not_found() {
         // Arrange
         let pool = create_connection_pool().await;
@@ -148,7 +132,7 @@ mod tests {
         assert!(err_type)
     }
 
-    #[tokio::test]
+    // testing?
     async fn check_unauthorized() {
         // Arrange
         let pool = create_connection_pool().await;

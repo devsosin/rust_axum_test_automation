@@ -1,4 +1,6 @@
-#[derive(Debug, sqlx::FromRow, PartialEq, Clone)]
+use serde::Serialize;
+
+#[derive(Debug, sqlx::FromRow, PartialEq, Clone, Serialize)]
 pub struct BaseCategory {
     id: Option<i16>,
     type_id: i16,
@@ -57,7 +59,7 @@ impl BaseCategory {
     }
 }
 
-#[derive(Debug, sqlx::FromRow, PartialEq)]
+#[derive(Debug, sqlx::FromRow, PartialEq, Serialize)]
 pub struct SubCategory {
     id: Option<i32>,
     base_id: i16,
