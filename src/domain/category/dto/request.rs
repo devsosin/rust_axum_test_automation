@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::domain::category::entity::{BaseCategory, SubCategory};
+use crate::{
+    domain::category::entity::{BaseCategory, SubCategory, UpdateBaseCategory},
+    global::constants::FieldUpdate,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NewBaseCategory {
@@ -56,5 +59,37 @@ impl NewSubCategory {
 
     pub fn to_entity(&self) -> SubCategory {
         SubCategory::new(self.base_id, self.name.to_string())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub struct EditBaseCategory {
+    name: Option<String>,
+    color: Option<String>,
+}
+
+impl EditBaseCategory {
+    pub fn new(name: Option<String>, color: Option<String>) -> Self {
+        Self { name, color }
+    }
+
+    pub fn get_name(&self) -> &Option<String> {
+        &self.name
+    }
+
+    pub fn get_color(&self) -> &Option<String> {
+        &self.color
+    }
+
+    pub fn to_update(self) -> UpdateBaseCategory {
+        let name = match self.name {
+            Some(v) => FieldUpdate::Set(v),
+            None => FieldUpdate::NoChange,
+        };
+        let color = match self.color {
+            Some(v) => FieldUpdate::Set(v),
+            None => FieldUpdate::NoChange,
+        };
+        UpdateBaseCategory::new(name, color)
     }
 }

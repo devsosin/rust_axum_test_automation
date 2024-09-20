@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::global::constants::FieldUpdate;
+
 #[derive(Debug, sqlx::FromRow, PartialEq, Clone, Serialize)]
 pub struct BaseCategory {
     id: Option<i16>,
@@ -89,5 +91,24 @@ impl SubCategory {
     }
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UpdateBaseCategory {
+    name: FieldUpdate<String>,
+    color: FieldUpdate<String>,
+}
+
+impl UpdateBaseCategory {
+    pub fn new(name: FieldUpdate<String>, color: FieldUpdate<String>) -> Self {
+        Self { name, color }
+    }
+
+    pub fn get_name(&self) -> &FieldUpdate<String> {
+        &self.name
+    }
+    pub fn get_color(&self) -> &FieldUpdate<String> {
+        &self.color
     }
 }

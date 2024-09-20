@@ -212,7 +212,7 @@ INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, create
 
 INSERT INTO tb_user(login_type, username, password, email) VALUES
     ('email', 'test_user', 'test_password', 'test@test.test'),
-    ('email', 'viewer_user', 'test_password', 'test22@test.test');
+    ('email', 'viewer_user', 'test_password', 'test22@test.test'),
     ('email', 'no_role_user', 'test_password', 'test33@test.test');
 
 INSERT INTO tb_user_book_role(book_id, user_id, role) VALUES

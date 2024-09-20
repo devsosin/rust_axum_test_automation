@@ -63,9 +63,9 @@ pub async fn save_base_category(
         DuplicateCheck AS (
             SELECT EXISTS (
                 SELECT 1
-                FROM BookExists AS b
-                JOIN tb_base_category AS c ON c.book_id = b.id
-                WHERE c.name = $6
+                FROM tb_base_category AS c
+                WHERE c.name = $6 
+                    AND (c.book_id = $2 OR c.book_id IS NULL)
             ) AS is_duplicate
         ),
         InsertBaseCategory AS (
@@ -268,6 +268,36 @@ mod tests {
             "FF0012".to_string(),
         );
         let _ = save_base_category(&pool, user_id, base_category.clone()).await;
+
+        // Act
+        let result = save_base_category(&pool, user_id, base_category).await;
+
+        // Assert
+        assert!(result.is_err());
+        println!("{:?}", result.as_ref().err());
+        let err_type = match *result.err().unwrap() {
+            CustomError::Duplicated(_) => true,
+            _ => false,
+        };
+        assert!(err_type)
+    }
+
+    #[tokio::test]
+    async fn check_duplicated_base() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user_id = 1;
+        let book_id = 1;
+        let duplicate_name = "수입";
+        let base_category = BaseCategory::new(
+            1,
+            book_id,
+            true,
+            true,
+            duplicate_name.to_string(),
+            "FF0012".to_string(),
+        );
 
         // Act
         let result = save_base_category(&pool, user_id, base_category).await;

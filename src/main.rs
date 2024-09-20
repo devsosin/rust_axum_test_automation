@@ -44,8 +44,8 @@ pub mod middleware {
 
 use crate::domain::{
     auth::route::get_router as auth_router, book::route::get_router as book_router,
-    image::route::get_router as image_router, record::route::get_router as record_router,
-    user::route::get_router as user_router,
+    category::route::get_router as category_router, image::route::get_router as image_router,
+    record::route::get_router as record_router, user::route::get_router as user_router,
 };
 use config::{aws::get_bucket, jwt::get_config};
 use middleware::auth::verify;
@@ -77,12 +77,14 @@ async fn main() {
     let record_router = record_router(&pool);
     let user_router = user_router(&pool);
     let image_router = image_router(&pool, &aws_bucket);
+    let category_router = category_router(&pool);
 
     let private_router = Router::new()
         .nest("/api/v1/book", book_router)
         .nest("/api/v1/record", record_router)
         .nest("/api/v1/user", user_router)
         .nest("/api/v1/image", image_router)
+        .nest("/api/v1/category", category_router)
         .layer(axum::middleware::from_fn_with_state(auth_config, verify));
 
     let cors = CorsLayer::new()
