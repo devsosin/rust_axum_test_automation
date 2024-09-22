@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Extension, Router,
 };
+use delete_base::delete_base_category;
+use delete_sub::delete_sub_category;
 use read_base::read_base_category;
 use read_sub::read_sub_category;
 use sqlx::PgPool;
@@ -15,6 +17,8 @@ use update_sub::update_sub_category;
 
 use super::{
     repository::{
+        delete_base::DeleteCategoryRepoImpl as DeleteBaseCategoryRepoImpl,
+        delete_sub::DeleteCategoryRepoImpl as DeleteSubCategoryRepoImpl,
         get_base::GetCategoryRepoImpl as GetBaseCategoryRepoImpl,
         get_sub::GetCategoryRepoImpl as GetSubCategoryRepoImpl,
         save_base::SaveCategoryRepoImpl as SaveBaseCategoryRepoImpl,
@@ -25,6 +29,8 @@ use super::{
     usecase::{
         create_base::CreateCategoryUsecaseImpl as CreateBaseCateogryUsecaseImpl,
         create_sub::CreateCategoryUsecaseImpl as CreateSubCateogryUsecaseImpl,
+        delete_base::DeleteCategoryUsecaseImpl as DeleteBaseCategoryUsecaseImpl,
+        delete_sub::DeleteCategoryUsecaseImpl as DeleteSubCategoryUsecaseImpl,
         read_base::ReadCategoryUsecaseImpl as ReadBaseCategoryUsecaseImpl,
         read_sub::ReadCategoryUsecaseImpl as ReadSubCategoryUsecaseImpl,
         update_base::UpdateCategoryUsecaseImpl as UpdateBaseCategoryUsecaseImpl,
@@ -34,6 +40,8 @@ use super::{
 
 mod create_base;
 mod create_sub;
+mod delete_base;
+mod delete_sub;
 mod read_base;
 mod read_sub;
 mod update_base;
@@ -107,6 +115,32 @@ pub fn update_sub_router(pool: &Arc<PgPool>) -> Router {
         .route(
             "/sub/:sub_id",
             patch(update_sub_category::<UpdateSubCategoryUsecaseImpl<UpdateSubCategoryRepoImpl>>),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub fn delete_base_router(pool: &Arc<PgPool>) -> Router {
+    let repository = DeleteBaseCategoryRepoImpl::new(&pool);
+    let usecase = DeleteBaseCategoryUsecaseImpl::new(repository);
+
+    Router::new()
+        .route(
+            "/base/:base_id",
+            delete(
+                delete_base_category::<DeleteBaseCategoryUsecaseImpl<DeleteBaseCategoryRepoImpl>>,
+            ),
+        )
+        .layer(Extension(Arc::new(usecase)))
+}
+
+pub fn delete_sub_router(pool: &Arc<PgPool>) -> Router {
+    let repository = DeleteSubCategoryRepoImpl::new(&pool);
+    let usecase = DeleteSubCategoryUsecaseImpl::new(repository);
+
+    Router::new()
+        .route(
+            "/sub/:sub_id",
+            delete(delete_sub_category::<DeleteSubCategoryUsecaseImpl<DeleteSubCategoryRepoImpl>>),
         )
         .layer(Extension(Arc::new(usecase)))
 }
