@@ -1,19 +1,33 @@
 use std::sync::Arc;
 
-use axum::{extract::Path, response::IntoResponse, Extension, Json};
+use axum::{
+    extract::{Path, Query},
+    response::IntoResponse,
+    Extension, Json,
+};
 use hyper::StatusCode;
 use serde_json::json;
 
-use crate::domain::record::usecase::read::ReadRecordUsecase;
+use crate::{
+    domain::record::{dto::request::SearchParams, usecase::read::ReadRecordUsecase},
+    global::errors::CustomError,
+};
 
 pub async fn read_records<T>(
     Extension(usecase): Extension<Arc<T>>,
     Extension(user_id): Extension<i32>,
+    Path(book_id): Path<i32>,
+    params: Query<SearchParams>,
 ) -> impl IntoResponse
 where
     T: ReadRecordUsecase,
 {
-    match usecase.read_records(user_id).await {
+    let params = params.0;
+    if !"md".contains(params.get_period().to_lowercase().as_str()) {
+        return CustomError::ValidationError("RecordPeriod".to_string()).into_response();
+    }
+
+    match usecase.read_records(user_id, book_id, params).await {
         Ok(records) => (StatusCode::OK, Json(json!(records))).into_response(),
         Err(err) => err.into_response(),
     }
@@ -38,7 +52,7 @@ mod tests {
     use std::sync::Arc;
 
     use axum::{async_trait, body::Body, extract::Request, routing::get, Extension, Router};
-    use chrono::NaiveDateTime;
+    use chrono::{NaiveDate, NaiveDateTime};
     use http_body_util::BodyExt;
     use mockall::{mock, predicate};
     use serde_json::Value;
@@ -46,7 +60,9 @@ mod tests {
 
     use super::{read_record, read_records};
     use crate::{
-        domain::record::{entity::Record, usecase::read::ReadRecordUsecase},
+        domain::record::{
+            dto::request::SearchParams, entity::Record, usecase::read::ReadRecordUsecase,
+        },
         global::errors::CustomError,
     };
 
@@ -55,7 +71,7 @@ mod tests {
 
         #[async_trait]
         impl ReadRecordUsecase for ReadRecordUsecaseImpl {
-            async fn read_records(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>>;
+            async fn read_records(&self, user_id: i32, book_id: i32, params: SearchParams) -> Result<Vec<Record>, Box<CustomError>>;
             async fn read_record(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>>;
         }
     }
@@ -94,16 +110,21 @@ mod tests {
     fn _create_list_app(user_id: i32, mock_usecase: MockReadRecordUsecaseImpl) -> Router {
         Router::new()
             .route(
-                "/api/v1/record",
+                "/api/v1/record/list/:book_id",
                 get(read_records::<MockReadRecordUsecaseImpl>),
             )
             .layer(Extension(Arc::new(mock_usecase)))
             .layer(Extension(user_id))
     }
-    fn _create_list_req() -> Request {
+    fn _create_list_req(book_id: i32, params: &SearchParams) -> Request {
+        println!("{:?}", params.encode_param());
         Request::builder()
             .method("GET")
-            .uri("/api/v1/record")
+            .uri(format!(
+                "/api/v1/record/list/{}?{}",
+                book_id,
+                params.encode_param()
+            ))
             .body(Body::empty())
             .unwrap()
     }
@@ -129,15 +150,22 @@ mod tests {
     async fn check_read_records_status() {
         // Arrange
         let user_id = 1;
+        let book_id = 1;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let search_params = SearchParams::new(start_dt, "M".to_string(), None, None);
 
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_records()
-            .with(predicate::eq(user_id))
-            .returning(|_| Ok(test_records()));
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(book_id),
+                predicate::eq(search_params.clone()),
+            )
+            .returning(|_, _, _| Ok(test_records()));
 
         let app = _create_list_app(user_id, mock_usecase);
-        let req = _create_list_req();
+        let req = _create_list_req(book_id, &search_params);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -150,15 +178,22 @@ mod tests {
     async fn check_read_records_body() {
         // Arrange
         let user_id = 1;
+        let book_id = 1;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let search_params = SearchParams::new(start_dt, "M".to_string(), None, None);
 
         let mut mock_usecase = MockReadRecordUsecaseImpl::new();
         mock_usecase
             .expect_read_records()
-            .with(predicate::eq(user_id))
-            .returning(|_| Ok(test_records()));
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(book_id),
+                predicate::eq(search_params.clone()),
+            )
+            .returning(|_, _, _| Ok(test_records()));
 
         let app = _create_list_app(user_id, mock_usecase);
-        let req = _create_list_req();
+        let req = _create_list_req(book_id, &search_params);
 
         // Act
         let response = app.oneshot(req).await.unwrap();
@@ -173,11 +208,40 @@ mod tests {
 
         let body_str =
             String::from_utf8(body_bytes.to_vec()).expect("failed to convert body to string");
+        println!("{}", &body_str);
 
         let body_json: Value = serde_json::from_str(&body_str).expect("failed to parse JSON");
 
         // Assert
         assert_eq!(body_json[0].get("id").unwrap(), Some(1).unwrap());
+    }
+
+    #[tokio::test]
+    async fn check_invalid_period() {
+        // Arrange
+        let user_id = 1;
+        let book_id = 1;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let search_params = SearchParams::new(start_dt, "K".to_string(), None, None);
+
+        let mut mock_usecase = MockReadRecordUsecaseImpl::new();
+        mock_usecase
+            .expect_read_records()
+            .with(
+                predicate::eq(user_id),
+                predicate::eq(book_id),
+                predicate::eq(search_params.clone()),
+            )
+            .returning(|_, _, _| Ok(test_records()));
+
+        let app = _create_list_app(user_id, mock_usecase);
+        let req = _create_list_req(book_id, &search_params);
+
+        // Act
+        let response = app.oneshot(req).await.unwrap();
+
+        // Assert
+        assert_eq!(response.status(), 400)
     }
 
     #[tokio::test]

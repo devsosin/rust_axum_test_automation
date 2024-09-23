@@ -3,7 +3,10 @@ use std::sync::Arc;
 use axum::async_trait;
 use sqlx::PgPool;
 
-use crate::{domain::record::entity::Record, global::errors::CustomError};
+use crate::{
+    domain::record::entity::{Record, Search},
+    global::errors::CustomError,
+};
 
 pub struct GetRecordRepoImpl {
     pool: Arc<PgPool>,
@@ -11,7 +14,12 @@ pub struct GetRecordRepoImpl {
 
 #[async_trait]
 pub trait GetRecordRepo: Send + Sync {
-    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>>;
+    async fn get_list(
+        &self,
+        user_id: i32,
+        book_id: i32,
+        search_query: Search,
+    ) -> Result<Vec<Record>, Box<CustomError>>;
     async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>>;
 }
 
@@ -23,27 +31,59 @@ impl GetRecordRepoImpl {
 
 #[async_trait]
 impl GetRecordRepo for GetRecordRepoImpl {
-    async fn get_list(&self, user_id: i32) -> Result<Vec<Record>, Box<CustomError>> {
-        get_list(&self.pool, user_id).await
+    async fn get_list(
+        &self,
+        user_id: i32,
+        book_id: i32,
+        search_query: Search,
+    ) -> Result<Vec<Record>, Box<CustomError>> {
+        get_list(&self.pool, user_id, book_id, search_query).await
     }
     async fn get_by_id(&self, user_id: i32, record_id: i64) -> Result<Record, Box<CustomError>> {
         get_by_id(&self.pool, user_id, record_id).await
     }
 }
 
-async fn get_list(pool: &PgPool, user_id: i32) -> Result<Vec<Record>, Box<CustomError>> {
-    let rows = sqlx::query_as::<_, Record>(
-        "
-        SELECT * FROM tb_record AS r
+async fn get_list(
+    pool: &PgPool,
+    user_id: i32,
+    book_id: i32,
+    search_query: Search,
+) -> Result<Vec<Record>, Box<CustomError>> {
+    let mut query = "
+        SELECT r.* 
+        FROM tb_record AS r
         JOIN tb_book AS b ON b.id = r.book_id
         JOIN tb_user_book_role AS br ON b.id = br.book_id
-        WHERE br.user_id = $1
-    ",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| {
+        JOIN tb_sub_category AS sc ON r.sub_category_id = sc.id
+        WHERE br.user_id = $1 AND b.id = $2
+            AND r.target_dt BETWEEN $3 AND $4
+    "
+    .to_string();
+
+    let mut bind_idx = 5;
+    if let Some(_) = search_query.get_sub_id() {
+        query.push_str(format!("AND sc.id = ${} ", bind_idx).as_str());
+        bind_idx += 1;
+    }
+    if let Some(_) = search_query.get_base_id() {
+        query.push_str(format!("AND sc.base_id = ${}", bind_idx).as_str());
+    }
+
+    let mut query_builder = sqlx::query_as::<_, Record>(&query)
+        .bind(user_id)
+        .bind(book_id)
+        .bind(search_query.get_start_dt())
+        .bind(search_query.get_end_dt());
+
+    if let Some(sub_id) = search_query.get_sub_id() {
+        query_builder = query_builder.bind(sub_id);
+    }
+    if let Some(base_id) = search_query.get_base_id() {
+        query_builder = query_builder.bind(base_id);
+    }
+
+    let rows = query_builder.fetch_all(pool).await.map_err(|e| {
         let err_msg = format!("Error(GetRecords): {:?}", &e);
         tracing::error!("{}", err_msg);
 
@@ -64,10 +104,10 @@ pub async fn get_by_id(
 ) -> Result<Record, Box<CustomError>> {
     let row = sqlx::query_as::<_, Record>(
         "
-        SELECT * FROM tb_record AS r
+        SELECT r.* FROM tb_record AS r
         JOIN tb_book AS b ON b.id = r.book_id
         JOIN tb_user_book_role AS br ON b.id = br.book_id
-        WHERE r.id = $1 AND br.user_id = $1
+        WHERE br.user_id = $1 AND r.id = $2
     ",
     )
     .bind(user_id)
@@ -91,10 +131,12 @@ pub async fn get_by_id(
 
 #[cfg(test)]
 mod tests {
+    use chrono::NaiveDate;
+
     use crate::{
         config::database::create_connection_pool,
         domain::record::{
-            entity::Record,
+            entity::{Record, Search},
             repository::get_record::{get_by_id, get_list},
         },
         global::errors::CustomError,
@@ -115,19 +157,87 @@ mod tests {
         let pool = create_connection_pool().await;
 
         let user_id = 1;
+        let book_id = 1;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let end_dt = NaiveDate::parse_from_str("2024-10-01", "%Y-%m-%d").unwrap();
+        let search_query = Search::new(start_dt, end_dt, None, None);
 
         // Act
-        let result = get_list(&pool, user_id).await;
+        let result = get_list(&pool, user_id, book_id, search_query).await;
         assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
         let result = result.unwrap();
 
         // Assert
-        let rows = sqlx::query_as::<_, Record>("SELECT * FROM tb_record")
+        let rows = sqlx::query_as::<_, Record>("SELECT * FROM tb_record WHERE book_id = $1")
+            .bind(book_id)
             .fetch_all(&pool)
             .await
             .unwrap();
 
         assert_eq!(result.len(), rows.len());
+    }
+
+    #[tokio::test]
+    async fn check_target_dt() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user_id = 3;
+        let book_id = 2;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let end_dt = NaiveDate::parse_from_str("2024-10-01", "%Y-%m-%d").unwrap();
+        let search_query = Search::new(start_dt, end_dt, None, None);
+
+        // Act
+        let result = get_list(&pool, user_id, book_id, search_query).await;
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
+        let result = result.unwrap();
+
+        // Assert
+        // ref) init.sql
+        assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn check_base_category() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user_id = 3;
+        let book_id = 2;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let end_dt = NaiveDate::parse_from_str("2024-10-01", "%Y-%m-%d").unwrap();
+        let search_query = Search::new(start_dt, end_dt, Some(8), None);
+
+        // Act
+        let result = get_list(&pool, user_id, book_id, search_query).await;
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
+        let result = result.unwrap();
+
+        // Assert
+        // ref) init.sql
+        assert_eq!(result.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn check_sub_category() {
+        // Arrange
+        let pool = create_connection_pool().await;
+
+        let user_id = 3;
+        let book_id = 2;
+        let start_dt = NaiveDate::parse_from_str("2024-09-01", "%Y-%m-%d").unwrap();
+        let end_dt = NaiveDate::parse_from_str("2024-10-01", "%Y-%m-%d").unwrap();
+        let search_query = Search::new(start_dt, end_dt, None, Some(16));
+
+        // Act
+        let result = get_list(&pool, user_id, book_id, search_query).await;
+        assert!(result.as_ref().map_err(|e| println!("{:?}", e)).is_ok());
+        let result = result.unwrap();
+
+        // Assert
+        // ref) init.sql
+        assert_eq!(result.len(), 1);
     }
 
     #[tokio::test]

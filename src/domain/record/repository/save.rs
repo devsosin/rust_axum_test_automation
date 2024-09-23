@@ -191,7 +191,7 @@ mod tests {
             1,
             18, // 식비
             16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
+            NaiveDateTime::parse_from_str("2024-08-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
             None,
         );
 
@@ -220,7 +220,7 @@ mod tests {
             1,
             18, // 식비
             16300,
-            NaiveDateTime::parse_from_str("2024-09-08 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
+            NaiveDateTime::parse_from_str("2024-08-02 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
             None,
         );
 

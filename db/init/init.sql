@@ -138,7 +138,8 @@ INSERT INTO tb_book_type(name) VALUES
     ('기업');
 
 INSERT INTO tb_book(name, type_id) VALUES
-    ('테스트 가계부', 1);
+    ('테스트 가계부', 1),
+    ('기록 조회용 가계부', 1);
 
 INSERT INTO tb_base_category(type_id, is_record, is_income, name, color) VALUES
     (1, FALSE, FALSE, '계좌', '000000'), -- 1
@@ -182,7 +183,7 @@ INSERT INTO tb_sub_category(base_id, name) VALUES
     (6, '자동차'),
     (6, '현금'),
 
-    (7, '급여'), -- 회사
+    (7, '급여'), -- 회사 (9)
     (7, '사업'), 
     (7, '기타'),
     (8, '주거비'),
@@ -209,8 +210,13 @@ INSERT INTO tb_sub_category(base_id, name) VALUES
 INSERT INTO tb_connect(name) VALUES
     ('테스트 커넥트');
 
+-- sub_category
+-- base_category 테스트
 INSERT INTO tb_record (book_id, sub_category_id, amount, memo, target_dt, created_at, asset_id) 
-        VALUES (1, 18, 15000, '감자탕', NOW(), NOW(), NULL);
+        VALUES (1, 17, 15000, '감자탕', '2024-09-23T18:20:30', NOW(), NULL),
+        (2, 18, 15000, '감자탕', '2024-09-10T18:30:20', NOW(), NULL), -- base 9
+        (2, 17, 15000, '감자탕', '2024-08-05T18:30:20', NOW(), NULL), -- base 9
+        (2, 16, 15000, '감자탕', '2024-09-21T18:30:20', NOW(), NULL); -- base 8
 
 INSERT INTO tb_user(login_type, username, password, email) VALUES
     ('email', 'test_user', 'test_password', 'test@test.test'),
@@ -219,7 +225,8 @@ INSERT INTO tb_user(login_type, username, password, email) VALUES
 
 INSERT INTO tb_user_book_role(book_id, user_id, role) VALUES
     (1, 1, 'owner'),
-    (1, 2, 'viewer');
+    (1, 2, 'viewer'),
+    (2, 3, 'owner');
 
 INSERT INTO tb_base_category (type_id, book_id, is_record, is_income, name, color) VALUES
     (1, 1, TRUE, FALSE, '테스트 카테고리', '337712'); -- 11

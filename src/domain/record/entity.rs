@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 
 use crate::global::constants::FieldUpdate;
@@ -97,6 +97,43 @@ impl Record {
     }
     pub fn get_asset_id(&self) -> &Option<i32> {
         &self.asset_id
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Search {
+    start_dt: NaiveDate,
+    end_dt: NaiveDate,
+    base_id: Option<i16>,
+    sub_id: Option<i32>,
+}
+
+impl Search {
+    pub fn new(
+        start_dt: NaiveDate,
+        end_dt: NaiveDate,
+        base_id: Option<i16>,
+        sub_id: Option<i32>,
+    ) -> Self {
+        Self {
+            start_dt,
+            end_dt,
+            base_id,
+            sub_id,
+        }
+    }
+
+    pub fn get_start_dt(&self) -> &NaiveDate {
+        &self.start_dt
+    }
+    pub fn get_end_dt(&self) -> &NaiveDate {
+        &self.end_dt
+    }
+    pub fn get_base_id(&self) -> &Option<i16> {
+        &self.base_id
+    }
+    pub fn get_sub_id(&self) -> &Option<i32> {
+        &self.sub_id
     }
 }
 

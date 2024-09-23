@@ -46,7 +46,7 @@ pub fn read_router(pool: &Arc<PgPool>) -> Router {
 
     Router::new()
         .route(
-            "/",
+            "/list/:book_id",
             get(read_records::<ReadRecordUsecaseImpl<GetRecordRepoImpl>>),
         )
         .route(

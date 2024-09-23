@@ -138,7 +138,7 @@ async fn update_record(
                         JOIN RecordExists AS r ON r.book_id = a.book_id
                         WHERE a.id = ${}
                         ) AS is_asset_exist
-                        ),",
+                ),",
                 index
             ));
             asset_check = true;
@@ -193,7 +193,7 @@ async fn update_record(
             + ";"),
     );
 
-    println!("{}", query);
+    // println!("{}", query);
 
     let mut query_builder = sqlx::query_as::<_, UpdateRecordResult>(&query)
         .bind(user_id)
