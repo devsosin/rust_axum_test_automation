@@ -118,8 +118,10 @@ CREATE TABLE tb_record(
 
 CREATE TABLE tb_connect(
     id SERIAL PRIMARY KEY,
-    name VARCHAR(32) NOT NULL
+    name VARCHAR(32) NOT NULL UNIQUE
 );
+
+CREATE UNIQUE INDEX idx_tb_connect_name ON tb_connect (name);
 
 CREATE TABLE tb_record_connect(
     record_id BIGINT,
