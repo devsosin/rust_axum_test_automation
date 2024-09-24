@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
 CREATE TABLE tb_image(
     id SERIAL PRIMARY KEY,
     original_name VARCHAR(128),

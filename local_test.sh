@@ -50,9 +50,24 @@ echo "$SERVICE_NAME is healthy. Proceeding with tests."
 # Step 3: Set environment variable
 export DATABASE_URL=postgres://test:test1234@localhost:5432/test_db
 
+echo "초기화: pg_stat_statements_reset"
+docker-compose -f "$DOCKER_COMPOSE_FILE" exec db psql -U test -d test_db -c "SELECT pg_stat_statements_reset();" > /dev/null
+
 # Step 4: Run cargo test with the specified target
 echo "Running tests for domain::$TARGET..."
-cargo test "domain::$TARGET" -- --test-threads=1 | tee test_results.log
+cargo test "domain::$TARGET" -- --test-threads=1
+
+# 테스트 실행 후 통계 수집
+echo "통계 수집"
+docker-compose -f "$DOCKER_COMPOSE_FILE" exec db psql -U test -d test_db -c "\
+SELECT query, \
+       calls, \
+       total_exec_time AS total_time, \
+       mean_exec_time AS mean_time, \
+       rows \
+FROM pg_stat_statements \
+ORDER BY total_exec_time DESC \
+LIMIT 10;" | tee -a query_results.log
 
 # Step 5: Clean up the environment by shutting down Docker Compose services
 echo "Cleaning up the test environment..."

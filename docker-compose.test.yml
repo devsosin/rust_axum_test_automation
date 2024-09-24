@@ -13,8 +13,10 @@ services:
       - "5432:5432"
     volumes:
       - ./db/init/:/docker-entrypoint-initdb.d/
+      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test_db"]
+      test: ["CMD-SHELL", "pg_isready -U test"]
       interval: 6s
       retries: 5
 
@@ -29,5 +31,7 @@ services:
       - DATABASE_URL=postgres://test:test1234@db:5432/test_db
       - JWT_ACCESS=test_access
       - JWT_REFRESH=test_refresh
-    env_file:
-      - .env.aws
+      - AWS_ACCESS_KEY=abcdefgh
+      - AWS_SECRET_KEY=dkjaosdicjsoadicj
+      - AWS_S3_BUCKET=test-bucket
+      - AWS_REGION=ap-northeast-2
